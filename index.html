@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent Mission Control for Claude Code · Long Run Labs</title>
+<meta name="description" content="Steer long Claude Code runs from a local console: a goal with a finish line, budgets that stop it, GO/NO-GO approvals for risky commands, notes between tool calls, and phone alerts.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://long-run-labs.github.io/">
+<meta property="og:title" content="Agent Mission Control for Claude Code">
+<meta property="og:description" content="Let it run overnight. Keep the GO button.">
+<meta property="og:image" content="https://long-run-labs.github.io/console.png">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+/* Console vernacular: mission clock, GO / NO-GO, HOLD. One dark-first page that also reads in light. */
+:root {
+  --bg: #0F1216; --surface: #161A20; --ink: #E5E8EB; --muted: #96A0AB; --rule: #28303A;
+  --signal: #84A2FF; --go: #4CC28A; --nogo: #F2706A; --hold: #F0A43A; --on-go: #08130D;
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root { --bg: #F4F5F2; --surface: #FFFFFF; --ink: #1B1F24; --muted: #5C6570; --rule: #D9DEE2;
+    --signal: #2C56C9; --go: #1E7A4C; --nogo: #B22E2E; --hold: #A86400; --on-go: #FFFFFF; color-scheme: light; }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font: 16px/1.6 var(--sans); }
+a { color: var(--signal); }
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
+.mono { font-family: var(--mono); }
+.label { font-size: 12px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+nav { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding-block: 18px; flex-wrap: wrap; }
+.brand { font-weight: 800; letter-spacing: .02em; text-decoration: none; color: var(--ink); }
+.brand span { color: var(--muted); font-weight: 500; }
+nav .links { display: flex; gap: 18px; font-size: 15px; flex-wrap: wrap; }
+nav .links a { color: var(--muted); text-decoration: none; }
+nav .links a:hover { color: var(--ink); }
+
+.hero { padding-block: 56px 32px; display: grid; gap: 22px; max-width: 760px; }
+.hero h1 { font-size: clamp(36px, 6vw, 60px); line-height: 1.05; letter-spacing: -.02em; margin: 0; text-wrap: balance; }
+.hero h1 em { font-style: normal; color: var(--go); }
+.hero p { font-size: 19px; color: var(--muted); margin: 0; max-width: 62ch; }
+.cta { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.btn { display: inline-block; padding: 13px 22px; border-radius: 8px; font-weight: 700; text-decoration: none; border: 1px solid var(--rule); color: var(--ink); }
+.btn.go { background: var(--go); border-color: var(--go); color: var(--on-go); letter-spacing: .02em; }
+.btn:hover { filter: brightness(1.08); }
+.small { font-size: 14px; color: var(--muted); }
+.shot { margin-block: 12px 64px; border: 1px solid var(--rule); border-radius: 12px; overflow: hidden; box-shadow: 0 30px 80px -40px rgba(0,0,0,.6); }
+.shot img { display: block; width: 100%; height: auto; }
+
+section { padding-block: 48px; border-top: 1px solid var(--rule); }
+section h2 { font-size: clamp(26px, 3.5vw, 34px); line-height: 1.15; margin: 8px 0 18px; letter-spacing: -.01em; text-wrap: balance; }
+.two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.card { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 18px 20px; }
+.card h3 { margin: 0 0 6px; font-size: 17px; }
+.card p { margin: 0; color: var(--muted); font-size: 15px; }
+.fail { border-left: 4px solid var(--nogo); }
+.grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.tag { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .08em; }
+.tag.go { color: var(--go); } .tag.hold { color: var(--hold); } .tag.sig { color: var(--signal); }
+.tablebox { overflow-x: auto; border: 1px solid var(--rule); border-radius: 10px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 15px; }
+th, td { text-align: left; padding: 11px 14px; border-top: 1px solid var(--rule); vertical-align: top; }
+thead th { border-top: 0; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+td code, li code, p code { font-family: var(--mono); font-size: .92em; }
+.yes { color: var(--go); font-weight: 700; } .no { color: var(--muted); }
+pre { margin: 0; background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 16px 18px; overflow-x: auto; font: 14px/1.6 var(--mono); }
+.price { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 16px; align-items: stretch; }
+.price .big { font-size: 48px; font-weight: 800; letter-spacing: -.02em; }
+.price ul { margin: 12px 0 18px; padding-left: 20px; color: var(--muted); }
+details { border-top: 1px solid var(--rule); padding-block: 14px; }
+details:first-of-type { border-top: 0; }
+summary { cursor: pointer; font-weight: 650; }
+details p { color: var(--muted); margin: 8px 0 0; max-width: 70ch; }
+footer { border-top: 1px solid var(--rule); padding-block: 28px 48px; color: var(--muted); font-size: 14px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+@media (max-width: 760px) {
+  .two, .grid3, .price { grid-template-columns: minmax(0, 1fr); }
+  .hero { padding-block: 32px 20px; }
+  .hero p { font-size: 17px; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav>
+    <a class="brand" href="#">Long Run Labs <span>/ Agent Mission Control</span></a>
+    <div class="links"><a href="#how">How it works</a><a href="#free">Free core</a><a href="#price">Pricing</a><a href="#faq">FAQ</a></div>
+  </nav>
+
+  <header class="hero">
+    <span class="label">For Claude Code</span>
+    <h1>Let it run overnight. <em>Keep the GO button.</em></h1>
+    <p>Agent Mission Control keeps long Claude Code runs on track: a goal with a "done when" it keeps working toward, budgets that actually stop it, GO / NO-GO approvals for risky commands, and your notes delivered between tool calls. Your phone buzzes when it needs you; you answer at your machine.</p>
+    <div class="cta">
+      <a class="btn go" href="https://buy.polar.sh/polar_cl_XzIYl3hBPBQKZT8p4Sn31PRBKXB7LYpEE45zi3KltXp">Get the kit · $15</a>
+      <a class="btn" href="https://github.com/long-run-labs/agent-mission-control">Try the free core</a>
+    </div>
+    <span class="small">One-time purchase. Runs on your machine. No account, no service, no dependencies. Going to bed? Give it the night: <code>mc set maxMinutes 600</code> and <code>mc set maxToolCalls 2000</code>.</span>
+  </header>
+
+  <div class="shot"><img src="console.png" alt="The Mission Control console: a goal, a mission clock, budget gauges, a GO / NO-GO request for git push, a question from the agent with answer buttons, and a box to send the agent a note." width="2560" height="1440"></div>
+
+  <section>
+    <span class="label">The problem</span>
+    <h2>Long runs fail in two ways</h2>
+    <div class="two">
+      <div class="card fail"><h3>It stops too early</h3><p>A quiet stop halfway through a migration while you were asleep, with nobody to tell it to keep going.</p></div>
+      <div class="card fail"><h3>It doesn't stop when it should</h3><p>A force-push, a publish or a <code>rm -rf</code> it should have asked about, or three hours burned on a dead end.</p></div>
+    </div>
+  </section>
+
+  <section id="how">
+    <span class="label">What you get</span>
+    <h2>A human in the loop, without a human at the keyboard</h2>
+    <div class="grid3">
+      <div class="card"><span class="tag go">GOAL</span><h3>A finish line</h3><p>Set the goal and a "done when". The Stop hook keeps the run going until the agent marks it done (it's told to only when your condition holds, and you see its summary), you put it on hold, or a budget runs out.</p></div>
+      <div class="card"><span class="tag hold">BUDGET</span><h3>Limits with teeth</h3><p>Cap tool calls, minutes and automatic continues. When one runs out, tools are refused and the agent wraps up.</p></div>
+      <div class="card"><span class="tag go">GO / NO-GO</span><h3>Approvals</h3><p><code>git push</code>, <code>npm publish</code> or any pattern you add waits for your click. The agent works on other things meanwhile.</p></div>
+      <div class="card"><span class="tag sig">STEER</span><h3>Notes mid-run</h3><p>Answers and notes reach a running agent after its next tool call. No restart, no lost context.</p></div>
+      <div class="card"><span class="tag sig">ALERTS</span><h3>Phone and desktop</h3><p>A push through the free ntfy app when it needs a GO, is blocked, stops or finishes. You answer at your machine.</p></div>
+      <div class="card"><span class="tag hold">LOCAL</span><h3>Yours, on your machine</h3><p>The console listens on 127.0.0.1 behind a private link. State is one JSON file. Zero dependencies.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <span class="label">Under the hood</span>
+    <h2>One hook on six Claude Code events, and a small CLI</h2>
+    <div class="tablebox">
+      <table>
+        <thead><tr><th scope="col">Event</th><th scope="col">What Mission Control does</th></tr></thead>
+        <tbody>
+          <tr><td><code>SessionStart</code></td><td>Injects the mission brief: goal, budget, open questions, recent log, protocol</td></tr>
+          <tr><td><code>UserPromptSubmit</code></td><td>Passes along anything new from you</td></tr>
+          <tr><td><code>PreToolUse</code></td><td>Refuses tools on hold or out of budget; holds commands that need a GO; keeps the agent out of its own state</td></tr>
+          <tr><td><code>PostToolUse</code> / <code>…Failure</code></td><td>Counts the call; delivers your notes, answers and decisions</td></tr>
+          <tr><td><code>Stop</code></td><td>While a goal is active, keeps going until it's done, unless it's waiting on you, out of budget, or stuck</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="small" style="margin-top:12px">If the state file can't be read, tools are refused with the reason instead of the checks switching off.</p>
+  </section>
+
+  <section id="free">
+    <span class="label">Free core vs. the kit</span>
+    <h2>Start free. Upgrade when you want the console.</h2>
+    <div class="tablebox">
+      <table>
+        <thead><tr><th scope="col">Feature</th><th scope="col">Free core (MIT)</th><th scope="col">Full kit ($15)</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Goal and Stop control, budgets</th><td class="yes">Yes</td><td class="yes">Yes</td></tr>
+          <tr><th scope="row">GO / NO-GO approvals, questions, notes</th><td class="yes">Yes, from the terminal</td><td class="yes">Yes, one click</td></tr>
+          <tr><th scope="row">Live console with gauges and buttons</th><td class="no">No</td><td class="yes">Yes</td></tr>
+          <tr><th scope="row">Phone (ntfy) and desktop alerts</th><td class="no">No</td><td class="yes">Yes</td></tr>
+          <tr><th scope="row">Sample mission to try it first</th><td class="no">No</td><td class="yes">Yes</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <span class="label">Install</span>
+    <h2>Two minutes to install</h2>
+<pre>node install.mjs /path/to/your/project --goal "Ship the CSV export"
+cd /path/to/your/project
+node .mission/bin/mc.mjs set maxMinutes 600   # optional: give it the night…
+node .mission/bin/mc.mjs set maxToolCalls 2000 # …and enough tool calls for it
+node .mission/bin/mc.mjs ui                    # kit only: prints the console's private link
+
+# in a second terminal, same folder:
+claude                                         # give it the task; steer from the console</pre>
+    <p class="small" style="margin-top:12px">Needs Claude Code and Node 18.17+. Tested on macOS; Linux and Windows aren't tested yet.</p>
+  </section>
+
+  <section id="price">
+    <span class="label">Pricing</span>
+    <div class="price">
+      <div>
+        <h2>One price, yours to keep</h2>
+        <p class="small">Use it on all your own projects, personal or commercial, and share it inside your team. Every purchase funds the free core.</p>
+      </div>
+      <div class="card">
+        <div class="big">$15</div>
+        <span class="small">one-time</span>
+        <ul><li>Console, phone and desktop alerts</li><li>Installer, hook, <code>mc</code> CLI, agent skill</li><li>End-to-end test suite and README</li><li>Updates to the 1.x line</li></ul>
+        <a class="btn go" href="https://buy.polar.sh/polar_cl_XzIYl3hBPBQKZT8p4Sn31PRBKXB7LYpEE45zi3KltXp">Get the kit</a>
+      </div>
+    </div>
+  </section>
+
+  <section id="faq">
+    <span class="label">FAQ</span>
+    <h2>Questions</h2>
+    <details><summary>Does it send my code or prompts anywhere?</summary><p>Mission Control itself runs entirely on your machine. The one exception is phone alerts, which are optional: each one carries the command waiting for approval, or the agent's question or summary, to ntfy.sh (topics are readable by anyone who guesses the name) or to your own ntfy server.</p></details>
+    <details><summary>Can I approve from my phone?</summary><p>Not yet. Your phone gets the alert; you approve or answer at your machine, in the console or with <code>mc</code>. The console is local-only on purpose.</p></details>
+    <details><summary>What happens when the agent stops?</summary><p>Once it has stopped (a blocking question, a budget, or on hold), nothing restarts it by itself. Answer in the console, then type <code>continue</code> in its session, or run <code>claude -p --continue</code> for headless runs.</p></details>
+    <details><summary>Can the agent approve its own commands?</summary><p>No. Human commands like approve, resume and reset-budget are refused when the agent tries them, and so is anything chained onto <code>mc</code> or touching its state folder. Approval patterns are a seatbelt, not a sandbox; Claude Code's own permissions still apply.</p></details>
+    <details><summary>Does it work with my team's settings?</summary><p>By default it installs into your own <code>.claude/settings.local.json</code> and git-ignores its state. Use <code>--shared</code> to put the hook in the committed settings for the whole team.</p></details>
+    <details><summary>How do I get help?</summary><p>Open an issue on the <a href="https://github.com/long-run-labs/agent-mission-control/issues">GitHub repo</a>.</p></details>
+  </section>
+
+  <footer>
+    <span>© 2026 Long Run Labs</span>
+    <span>Payments by Polar · Free core on <a href="https://github.com/long-run-labs/agent-mission-control">GitHub</a></span>
+  </footer>
+</div>
+</body>
+</html>
