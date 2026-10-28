@@ -140,14 +140,14 @@ footer a { color: var(--muted); text-decoration: none; margin-left: 16px; }
     </ul>
 
     <h2>Will I get a notification when something is held?</h2>
-    <p>Not reliably. Remote Control sends a push for permission prompts and questions, and a hold is neither: the agent just keeps working. <strong>Push when Claude decides</strong> lets the agent send a notification when it thinks you should know, which may or may not happen at a hold. If you want an alert every time, the <a href="./#kit">paid kit</a> sends one through ntfy when a command is held, the agent is blocked, or the run finishes.</p>
+    <p>Not reliably. Remote Control sends a push for permission prompts and questions, and a hold is neither: the agent just keeps working. <strong>Push when Claude decides</strong> lets the agent send a notification when it thinks you should know, which may or may not happen at a hold.</p>
 
     <h2>Limits</h2>
     <div class="tablebox"><table class="stack">
       <thead><tr><th scope="col">Limit</th><th scope="col">What it means</th></tr></thead>
       <tbody>
         <tr><th scope="row">Your machine stays on</th><td>Remote Control drives a session running on your computer, so it has to stay awake and online.</td></tr>
-        <tr><th scope="row">Subscription login</th><td>Remote Control needs a claude.ai login. With an API key, approve at the machine; the kit's ntfy alert tells you when.</td></tr>
+        <tr><th scope="row">Subscription login</th><td>Remote Control needs a claude.ai login. With an API key, approve at the machine.</td></tr>
         <tr><th scope="row">Patterns are a seatbelt</th><td>Holds match the command text. An agent that deliberately disguises a command can get past them, so keep Claude Code's own permissions on.</td></tr>
         <tr><th scope="row">Only a person's <code>/mc</code> counts</th><td>The plugin applies <code>/mc</code> typed by a person in an attended session, including over Remote Control, and refuses the usual ways an agent could approve itself. Like the patterns, that's a seatbelt, not a sandbox.</td></tr>
       </tbody>

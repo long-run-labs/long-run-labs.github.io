@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Privacy · Long Run Labs</title>
-<meta name="description" content="What Agent Mission Control and this website collect: the free plugin sends nothing, the kit sends only the alerts you turn on, and this site uses cookieless analytics.">
+<meta name="description" content="What Agent Mission Control and this website collect: the free plugin sends nothing, and this site uses cookieless analytics.">
 <link rel="canonical" href="https://long-run-labs.github.io/privacy.html">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -43,7 +43,7 @@ footer { border-top: 1px solid var(--rule); margin-top: 48px; padding-block: 24p
   <nav><a class="brand" href="./"><img src="favicon.svg" alt="" width="24" height="24">Long Run Labs</a></nav>
 
   <h1>Privacy</h1>
-  <p class="muted">Last updated October 28, 2026 (kit 1.2). This covers Agent Mission Control (the free plugin and the paid kit) and this website.</p>
+  <p class="muted">Last updated October 28, 2026. This covers the free Agent Mission Control plugin and this website.</p>
 
   <h2>The free plugin</h2>
   <ul>
@@ -53,24 +53,15 @@ footer { border-top: 1px solid var(--rule); margin-top: 48px; padding-block: 24p
     <li>We never see any of it. Delete a project's <code>.mission/</code> folder to remove its data.</li>
   </ul>
 
-  <h2>The kit</h2>
-  <ul>
-    <li>Everything above, plus a local console that listens on <code>127.0.0.1</code> only and needs a private link to open.</li>
-    <li>Desktop notifications are shown by your operating system and don't leave your machine.</li>
-    <li>Phone alerts are off until you set an ntfy topic. Then each alert sends one short line to ntfy.sh, or to the ntfy server you choose: ids, the matched pattern and counts, such as <em>a1 matches "git push". Approve with /mc approve a1, or deny with /mc deny a1.</em> or <em>Done: 7 commits. Waiting on a1.</em> Since version 1.2 it never includes the command itself, the agent's question or its summary, because those can contain secrets. ntfy topics are readable by anyone who knows the name, so pick one that can't be guessed. <a href="https://ntfy.sh/docs/privacy/">ntfy's privacy policy</a> applies to what it receives.</li>
-    <li>If neither desktop nor phone alerts are on, the plugin asks Claude Code to send one notification through its own PushNotification tool when a command is held, naming the pattern and the id, not the command. Claude Code delivers it, not us.</li>
-    <li>The morning report (since 1.2) is a file in your project's <code>.mission/</code> folder. It's written on your machine and never sent anywhere. It includes full command text, so don't share it.</li>
-  </ul>
-
-  <h2>Buying the kit</h2>
-  <p>Polar is the merchant of record and handles payment, tax and receipts. Polar shares your order details with us (such as your name, email address and country) so we can deliver the kit and support your purchase. We keep them as long as tax and accounting rules require, and delete what we can on request. We don't sell or share them, and we don't send marketing email. <a href="https://polar.sh/legal/privacy">Polar's privacy policy</a> covers the payment itself.</p>
+  <h2>The paid kit</h2>
+  <p>The paid kit is no longer sold, and we hold no order data from it.</p>
 
   <h2>This website</h2>
-  <p>This site is hosted on GitHub Pages and uses <a href="https://umami.is/privacy">Umami Cloud</a> for analytics. Umami uses no cookies and stores nothing in your browser. For each page view it records the page and its title, the site you came from, your browser, operating system, device type, screen size, language and approximate location, plus clicks on a few of our buttons and links, such as "Get the kit" and the Copy buttons. It uses your IP address briefly to work out the location and doesn't store it. It doesn't record your name, email or anything you type. If your browser sends Do Not Track, your browser still loads the script, but the script sends nothing. On our plan, Umami keeps this data for six months, and its privacy policy covers what it receives.</p>
+  <p>This site is hosted on GitHub Pages and uses <a href="https://umami.is/privacy">Umami Cloud</a> for analytics. Umami uses no cookies and stores nothing in your browser. For each page view it records the page and its title, the site you came from, your browser, operating system, device type, screen size, language and approximate location, plus clicks on a few of our buttons and links, such as the Copy buttons. It uses your IP address briefly to work out the location and doesn't store it. It doesn't record your name, email or anything you type. If your browser sends Do Not Track, your browser still loads the script, but the script sends nothing. On our plan, Umami keeps this data for six months, and its privacy policy covers what it receives.</p>
   <p>GitHub may also log visits, as described in the <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">GitHub Privacy Statement</a>.</p>
 
   <h2>Questions and requests</h2>
-  <p>For questions about the plugin or the kit, open an issue on <a href="https://github.com/long-run-labs/agent-mission-control/issues">GitHub</a>. Issues are public, so don't include personal details there. For a request about your purchase or your personal data, open an issue titled "Privacy request" with no details in it, and we'll reply there with a private address to write to.</p>
+  <p>For questions about the plugin, open an issue on <a href="https://github.com/long-run-labs/agent-mission-control/issues">GitHub</a>. Issues are public, so don't include personal details there. For a request about your personal data, open an issue titled "Privacy request" with no details in it, and we'll reply there with a private address to write to.</p>
 
   <footer>© 2026 Long Run Labs · <a href="./">Agent Mission Control</a></footer>
 </div>

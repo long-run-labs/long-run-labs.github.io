@@ -33,8 +33,7 @@
   "softwareHelp": "https://github.com/long-run-labs/agent-mission-control/issues",
   "publisher": { "@type": "Organization", "name": "Long Run Labs", "url": "https://long-run-labs.github.io/" },
   "offers": [
-    { "@type": "Offer", "name": "Free plugin", "price": "0", "priceCurrency": "USD" },
-    { "@type": "Offer", "name": "Kit: console and alerts", "price": "15", "priceCurrency": "USD", "url": "https://buy.polar.sh/polar_cl_XzIYl3hBPBQKZT8p4Sn31PRBKXB7LYpEE45zi3KltXp" }
+    { "@type": "Offer", "name": "Free plugin", "price": "0", "priceCurrency": "USD" }
   ]
 }
 </script>
@@ -305,7 +304,7 @@ footer a:hover { color: var(--ink); }
     <div class="top">
       <a class="brand" href="./"><img src="favicon.svg" alt="" width="28" height="28">Long Run Labs <span>/ Mission Control</span></a>
       <nav aria-label="Main">
-        <a href="#how" class="opt">How it works</a><a href="#kit" class="opt">The kit</a><a href="#pricing">Pricing</a><a href="claude-code-overnight.html" data-track="nav-guide">Guide</a><a href="https://github.com/long-run-labs/agent-mission-control" data-track="github-click" data-track-where="nav">GitHub</a>
+        <a href="#how" class="opt">How it works</a><a href="#pricing">Pricing</a><a href="claude-code-overnight.html" data-track="nav-guide">Guide</a><a href="https://github.com/long-run-labs/agent-mission-control" data-track="github-click" data-track-where="nav">GitHub</a>
       </nav>
     </div>
   </div>
@@ -328,7 +327,6 @@ footer a:hover { color: var(--ink); }
         </div>
         <div class="cta">
           <a class="btn go" href="#how">See how a night goes</a>
-          <a class="btn" href="https://buy.polar.sh/polar_cl_XzIYl3hBPBQKZT8p4Sn31PRBKXB7LYpEE45zi3KltXp" data-track="kit-click" data-track-where="hero">Get the kit <small>$15</small></a>
         </div>
         <ul class="trust" aria-label="At a glance">
           <li>Free plugin, MIT</li><li>The plugin sends nothing</li><li>Zero dependencies</li><li>51 end-to-end tests</li>
@@ -457,35 +455,10 @@ footer a:hover { color: var(--ink); }
     </div>
   </section>
 
-  <section id="kit" aria-labelledby="kit-h">
-    <div class="kit">
-      <figure style="margin:0">
-        <div class="shot"><picture>
-          <source type="image/webp" srcset="img/morning-report.webp">
-          <img src="img/morning-report.png" alt="A sample morning report. Waiting on you: a1, a held git push, and q2, a question, each with the exact /mc to type. Below: 7 commits, 9 files changed, 1,412 of 2,000 tool calls, 402 of 600 minutes, and the agent's last status." width="940" height="1180" loading="lazy">
-        </picture></div>
-        <figcaption>A sample report from an illustrative overnight mission. The kit's demo writes a smaller real one you can open in a minute.</figcaption>
-      </figure>
-      <div>
-        <span class="eyebrow">The kit · $15 once</span>
-        <h2 id="kit-h" style="font-size:clamp(28px,3.4vw,40px);line-height:1.1;letter-spacing:-.02em;margin:14px 0 0">Wake up to a morning report</h2>
-        <p style="color:var(--muted);margin:14px 0 0">When the run stops, the kit writes one page that answers two questions: what happened while you slept, and what does it need from you?</p>
-        <ul>
-          <li><strong>What needs you:</strong> each held command and open question, with the exact <code>/mc</code> to type.</li>
-          <li><strong>What got done:</strong> commits since you set the goal, files changed, anything left uncommitted, and the agent's last status.</li>
-          <li><strong>What was refused, and the budget:</strong> blocked tool calls, commands you denied with your reasons, and how much of the budget the night used.</li>
-          <li><strong>Plus the live console and alerts:</strong> GO / NO-GO buttons, and a one-line phone or desktop alert when it needs you or finishes.</li>
-        </ul>
-        <a class="btn go" href="https://buy.polar.sh/polar_cl_XzIYl3hBPBQKZT8p4Sn31PRBKXB7LYpEE45zi3KltXp" data-track="kit-click" data-track-where="kit">Get the kit · $15</a>
-        <p class="cap" style="margin-top:12px">The report stays on your machine. Phone alerts carry ids, patterns and counts, never your commands.</p>
-      </div>
-    </div>
-  </section>
-
   <section id="pricing" aria-labelledby="pricing-h">
     <div class="head">
       <span class="eyebrow">Pricing</span>
-      <h2 id="pricing-h">Free for the core. $15 once for the morning report and console.</h2>
+      <h2 id="pricing-h">Free, and MIT licensed.</h2>
     </div>
     <div class="plans">
       <div class="plan">
@@ -495,15 +468,8 @@ footer a:hover { color: var(--ink); }
         <ul><li>Holds for risky commands, with <code>/mc approve</code></li><li>Tool-call, minute and continue budgets</li><li>Goal with a finish line</li><li>Notes, questions and <code>/mc status</code></li></ul>
         <a class="btn" href="#install" data-track="plan-free">Install the plugin</a>
       </div>
-      <div class="plan pro">
-        <h3>Kit</h3>
-        <div class="price">$15 <small>one-time</small></div>
-        <p class="note">Everything in the plugin, plus the morning after: what got done and what needs you.</p>
-        <ul><li>A morning report when the run stops</li><li>Live console with GO / NO-GO buttons</li><li>Phone (ntfy) and desktop alerts</li><li>Sample mission to try it first</li><li>All 1.x updates</li></ul>
-        <a class="btn go" href="https://buy.polar.sh/polar_cl_XzIYl3hBPBQKZT8p4Sn31PRBKXB7LYpEE45zi3KltXp" data-track="kit-click" data-track-where="pricing">Get the kit</a>
-      </div>
     </div>
-    <p class="fine">Use the kit on all your own projects, personal or commercial, and share it inside your team. Payments, tax and receipts are handled by <a href="https://polar.sh">Polar</a>, the merchant of record. Every purchase funds the free plugin.</p>
+    <p class="fine">The free plugin is MIT licensed: use it on any project, personal or commercial.</p>
   </section>
 
   <section id="hood" aria-labelledby="hood-h">
@@ -548,12 +514,12 @@ footer a:hover { color: var(--ink); }
     <div class="faq">
       <details><summary>How is this different from permission prompts?</summary><p>A permission prompt asks right away and waits. That's right when you're at the keyboard. Overnight, it stops the whole run until morning, and in auto or skip-permissions mode a push to your repo doesn't ask at all. A hold queues just that command as a1, tells the agent to carry on with other work, and runs exactly what you approved, once. Claude Code's own permissions still apply on top.</p></details>
       <details><summary>Why not just Claude Code's /goal?</summary><p><code>/goal</code> keeps a run going until a condition holds. Mission Control has its own finish line, so you don't need both, and adds what <code>/goal</code> doesn't: holds that don't block the run, budgets that refuse tools once they're spent, and notes and answers mid-run.</p></details>
-      <details><summary>Does it send my code or prompts anywhere?</summary><p>No. The free plugin makes no network connections at all. The kit runs on your machine too; its one exception is optional phone alerts, which send a short text (the held command, or the agent's question or summary) to ntfy.sh or your own ntfy server. Details are in the <a href="privacy.html">privacy policy</a>.</p></details>
+      <details><summary>Does it send my code or prompts anywhere?</summary><p>No. The free plugin makes no network connections at all. Details are in the <a href="privacy.html">privacy policy</a>.</p></details>
       <details><summary>Can the agent approve its own commands?</summary><p>Not by any ordinary route. Your commands, like approve, resume and reset-budget, are refused when the agent tries them, and so is anything chained onto <code>mc</code> or touching its state. A <code>/mc</code> only counts when a person types it in a session they're attending: one sent through a nested <code>claude -p</code>, a scheduled prompt or a script is refused, and starting any nested <code>claude</code> waits for your GO. It's a seatbelt, not a sandbox: an agent that deliberately disguises a command can get past pattern matching, and a Claude Code mod you install can override a hold, so Claude Code's own permissions still matter.</p></details>
       <details><summary>Can I steer while it's working?</summary><p>Yes. A <code>/mc</code> typed while the agent is mid-step waits until that step ends, so press Esc first to send it right away; the agent picks up again after your <code>/mc</code>. Or run <code>mc say …</code> in another terminal, and the note reaches the agent after its next tool call without interrupting it.</p></details>
-      <details><summary>Can I approve when I'm away from the machine?</summary><p>Yes, with Claude Code's <a href="https://code.claude.com/docs/en/remote-control">Remote Control</a>. Turn it on for the session, then send <code>/mc approve a1</code> from claude.ai/code. We tested this in a desktop browser: the web composer says "/mc isn't a command here", but the message still reaches your session and the held command runs. We haven't tried it from a phone yet. Remote Control needs a claude.ai subscription login, not an API key. The kit adds phone alerts when something is held, so you know when to look. <a href="approve-remotely.html">Step-by-step guide</a>.</p></details>
+      <details><summary>Can I approve when I'm away from the machine?</summary><p>Yes, with Claude Code's <a href="https://code.claude.com/docs/en/remote-control">Remote Control</a>. Turn it on for the session, then send <code>/mc approve a1</code> from claude.ai/code. We tested this in a desktop browser: the web composer says "/mc isn't a command here", but the message still reaches your session and the held command runs. We haven't tried it from a phone yet. Remote Control needs a claude.ai subscription login, not an API key. <a href="approve-remotely.html">Step-by-step guide</a>.</p></details>
       <details><summary>Linux and Windows?</summary><p>It's plain Node.js 18.17+ with no dependencies, but so far it's only been tested on macOS. If you try it elsewhere, an issue with what you saw helps a lot.</p></details>
-      <details><summary>How do I get help?</summary><p>Open an issue on <a href="https://github.com/long-run-labs/agent-mission-control/issues">GitHub</a>. For anything about a purchase, open one titled "Purchase", with no personal details, and we'll reply there with a private way to reach us.</p></details>
+      <details><summary>How do I get help?</summary><p>Open an issue on <a href="https://github.com/long-run-labs/agent-mission-control/issues">GitHub</a>.</p></details>
     </div>
   </section>
 </div>
