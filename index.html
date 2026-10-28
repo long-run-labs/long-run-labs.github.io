@@ -3,22 +3,23 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Agent Mission Control for Claude Code · Long Run Labs</title>
-<meta name="description" content="A Claude Code plugin for long runs: risky commands wait for your GO, budgets actually stop the run, and you steer it from the chat with /mc. Free and MIT; the $15 kit adds a live console and phone alerts.">
+<title>Agent Mission Control: let Claude Code run all night · Long Run Labs</title>
+<meta name="description" content="A free Claude Code plugin for long, unattended runs. Risky commands like git push wait for your GO while the agent keeps working, budgets stop the run when they're spent, and a finish line keeps it going until the job is done.">
 <link rel="canonical" href="https://long-run-labs.github.io/">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="theme-color" content="#0F1216" media="(prefers-color-scheme: dark)">
-<meta name="theme-color" content="#F4F5F2" media="(prefers-color-scheme: light)">
+<link rel="preload" href="fonts/instrument-sans.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/jetbrains-mono.woff2" as="font" type="font/woff2" crossorigin>
+<meta name="theme-color" content="#070B14">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Long Run Labs">
 <meta property="og:url" content="https://long-run-labs.github.io/">
-<meta property="og:title" content="Agent Mission Control for Claude Code">
-<meta property="og:description" content="Let it run overnight. Keep the GO button.">
-<meta property="og:image" content="https://long-run-labs.github.io/mc-demo.png">
-<meta property="og:image:width" content="2400">
-<meta property="og:image:height" content="1350">
-<meta property="og:image:alt" content="A real Claude Code session: a git push waits for /mc approve, then runs.">
+<meta property="og:title" content="Let Claude Code run all night. Keep the GO button.">
+<meta property="og:description" content="A free plugin for long runs: risky commands wait for your approval while the agent keeps working, and budgets actually stop the run.">
+<meta property="og:image" content="https://long-run-labs.github.io/img/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A night of Claude Code work: a git push held as a1 at 01:52, tests passing by 05:55, approved and pushed at 07:42.">
 <meta name="twitter:card" content="summary_large_image">
 <script type="application/ld+json">
 {
@@ -27,7 +28,7 @@
   "name": "Agent Mission Control",
   "applicationCategory": "DeveloperApplication",
   "operatingSystem": "macOS",
-  "description": "A Claude Code plugin that holds risky commands for your approval, enforces budgets and lets you steer long runs from the chat.",
+  "description": "A Claude Code plugin that holds risky commands for your approval while the agent keeps working, enforces budgets and gives long runs a finish line.",
   "url": "https://long-run-labs.github.io/",
   "softwareHelp": "https://github.com/long-run-labs/agent-mission-control/issues",
   "publisher": { "@type": "Organization", "name": "Long Run Labs", "url": "https://long-run-labs.github.io/" },
@@ -37,345 +38,596 @@
   ]
 }
 </script>
+<script>document.documentElement.classList.add("js");</script>
 <!-- Cookieless analytics (Umami): see privacy.html -->
 <script defer src="https://cloud.umami.is/script.js" data-website-id="5f7073ba-6949-42cc-957e-8370b017b8b6" data-domains="long-run-labs.github.io" data-do-not-track="true" data-exclude-hash="true"></script>
 <style>
-/* Console vernacular: mission clock, GO / NO-GO, HOLD. Dark first; reads the same in light. */
+@font-face { font-family: "Instrument Sans"; src: url("fonts/instrument-sans.woff2") format("woff2"); font-weight: 400 700; font-display: swap; }
+@font-face { font-family: "JetBrains Mono"; src: url("fonts/jetbrains-mono.woff2") format("woff2"); font-weight: 400 800; font-display: swap; }
+
+/* Night shift: deep night background, three actors (you, the agent, the hold) and a dawn at the end. */
 :root {
-  --bg: #0F1216; --surface: #161A20; --sunk: #12161B; --ink: #E5E8EB; --muted: #96A0AB; --rule: #28303A;
-  --signal: #84A2FF; --go: #4CC28A; --nogo: #F2706A; --hold: #F0A43A; --on-go: #08130D;
-  --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
-  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --bg: #070B14; --bg2: #0A1020; --surface: #0D1426; --surface2: #111A31; --line: #1D2842; --line2: #2A3757;
+  --ink: #E9EDF5; --muted: #98A4BD; --faint: #8794AF;
+  --you: #C4B5FD; --agent: #8AB4FF; --hold: #FFB547; --go: #3EE09A; --nogo: #FF7A7A; --on-go: #04140C;
+  --sans: "Instrument Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   color-scheme: dark;
-}
-@media (prefers-color-scheme: light) {
-  :root { --bg: #F4F5F2; --surface: #FFFFFF; --sunk: #ECEEEA; --ink: #1B1F24; --muted: #5C6570; --rule: #D9DEE2;
-    --signal: #2C56C9; --go: #1E7A4C; --nogo: #B22E2E; --hold: #A86400; --on-go: #FFFFFF; color-scheme: light; }
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; }
 html { scroll-behavior: smooth; scroll-padding-top: 16px; }
-@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
-body { background: var(--bg); color: var(--ink); font: 16px/1.6 var(--sans); -webkit-font-smoothing: antialiased; }
-a { color: var(--signal); }
+body { background: var(--bg); color: var(--ink); font: 17px/1.6 var(--sans); -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+a { color: var(--agent); text-underline-offset: 3px; }
 img, video { max-width: 100%; }
-.wrap { max-width: 1120px; margin: 0 auto; padding: 0 20px; }
+code, .mono { font-family: var(--mono); font-size: .86em; }
+.wrap { max-width: 1160px; margin: 0 auto; padding: 0 24px; }
 .skip { position: absolute; left: -999px; top: 8px; background: var(--surface); color: var(--ink); padding: 8px 12px; border-radius: 6px; z-index: 10; }
 .skip:focus { left: 12px; }
-.mono { font-family: var(--mono); }
-.label { font-size: 12px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
-code { font-family: var(--mono); font-size: .92em; }
+:focus-visible { outline: 2px solid var(--agent); outline-offset: 3px; border-radius: 4px; }
+.eyebrow { font: 600 12.5px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
 
 /* Header */
-.top { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding-block: 18px; flex-wrap: wrap; }
-.brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 800; letter-spacing: .02em; text-decoration: none; color: var(--ink); }
+header.site { position: absolute; top: 0; left: 0; right: 0; z-index: 2; }
+.top { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding-block: 20px; flex-wrap: wrap; }
+.brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: .01em; text-decoration: none; color: var(--ink); }
 .brand img { width: 28px; height: 28px; border-radius: 7px; }
-.brand span { color: var(--muted); font-weight: 500; }
-.top nav { display: flex; gap: 18px; font-size: 15px; flex-wrap: wrap; }
+.brand span { color: var(--faint); font-weight: 500; }
+.top nav { display: flex; gap: 22px; font-size: 15px; flex-wrap: wrap; }
 .top nav a { color: var(--muted); text-decoration: none; }
 .top nav a:hover { color: var(--ink); }
 
-/* Hero */
-.hero { padding-block: 48px 28px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; max-width: 800px; }
-.hero h1 { font-size: clamp(38px, 6.4vw, 64px); line-height: 1.04; letter-spacing: -.025em; margin: 0; text-wrap: balance; }
+/* Hero: night sky fading to a dawn line at the bottom */
+.sky { position: relative; overflow: hidden; border-bottom: 1px solid var(--line);
+  background:
+    radial-gradient(1px 1px at 12% 22%, #ffffff55 50%, transparent 51%),
+    radial-gradient(1px 1px at 28% 64%, #ffffff33 50%, transparent 51%),
+    radial-gradient(1px 1px at 47% 12%, #ffffff44 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 66% 30%, #ffffff40 50%, transparent 51%),
+    radial-gradient(1px 1px at 83% 18%, #ffffff55 50%, transparent 51%),
+    radial-gradient(1px 1px at 91% 52%, #ffffff30 50%, transparent 51%),
+    radial-gradient(1px 1px at 6% 78%, #ffffff30 50%, transparent 51%),
+    radial-gradient(120% 70% at 80% 120%, rgba(255, 181, 71, .16), transparent 60%),
+    radial-gradient(90% 60% at 10% -10%, rgba(138, 180, 255, .10), transparent 60%),
+    linear-gradient(180deg, var(--bg) 0%, var(--bg2) 100%);
+}
+.hero { display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr); gap: 52px; align-items: center; padding-block: 112px 72px; }
+.hero h1 { font-size: clamp(40px, 4.9vw, 60px); line-height: 1.02; letter-spacing: -.03em; margin: 14px 0 18px; font-weight: 700; text-wrap: balance; }
 .hero h1 em { font-style: normal; color: var(--go); }
-.hero .sub { font-size: 19px; color: var(--muted); margin: 0; max-width: 64ch; }
+.hero .sub { font-size: 19px; color: var(--muted); margin: 0 0 24px; max-width: 54ch; }
 .hero .sub strong { color: var(--ink); font-weight: 600; }
-.cta { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
-.btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; border-radius: 8px; font-weight: 700; text-decoration: none; border: 1px solid var(--rule); color: var(--ink); background: transparent; font: inherit; font-weight: 700; cursor: pointer; }
-.btn.go { background: var(--go); border-color: var(--go); color: var(--on-go); letter-spacing: .02em; }
-.btn:hover { filter: brightness(1.08); }
-.trust { display: flex; flex-wrap: wrap; gap: 8px 20px; margin: 4px 0 0; padding: 0; list-style: none; color: var(--muted); font-size: 14px; }
-.trust li::before { content: "✓"; color: var(--go); font-weight: 800; margin-right: 6px; }
+.cta { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-top: 16px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 12px 20px; border-radius: 10px; text-decoration: none; border: 1px solid var(--line2); color: var(--ink); background: rgba(255,255,255,.02); font: 600 16px/1.2 var(--sans); cursor: pointer; transition: transform .15s ease, filter .15s ease, border-color .15s ease; }
+.btn:hover { border-color: var(--faint); }
+.btn.go { background: var(--go); border-color: var(--go); color: var(--on-go); box-shadow: 0 10px 30px -12px rgba(62, 224, 154, .6); }
+.btn.go:hover { filter: brightness(1.06); transform: translateY(-1px); }
+.btn small { font-weight: 500; opacity: .8; }
+.trust { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 22px 0 0; padding: 0; list-style: none; color: var(--muted); font-size: 14px; }
+.trust li { display: inline-flex; align-items: center; gap: 7px; }
+.trust li::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--go); box-shadow: 0 0 0 3px rgba(62, 224, 154, .15); }
 
-/* Code with a copy button */
-.code { position: relative; min-width: 0; }
-.code pre { margin: 0; background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 14px 92px 14px 16px; overflow-x: auto; font: 14px/1.65 var(--mono); }
-.copy { position: absolute; top: 9px; right: 9px; padding: 5px 11px; border-radius: 6px; border: 1px solid var(--rule); background: var(--bg); color: var(--muted); font: 600 12px var(--sans); cursor: pointer; }
+/* Copy box */
+.code { min-width: 0; background: rgba(13, 20, 38, .9); border: 1px solid var(--line2); border-radius: 12px; overflow: hidden; }
+.code .bar-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 7px 8px 7px 14px; border-bottom: 1px solid var(--line); font: 500 12px/1 var(--mono); color: var(--faint); }
+.cmds { list-style: none; margin: 0; padding: 6px 0; }
+.cmds li { display: flex; align-items: center; gap: 10px; padding: 4px 8px 4px 16px; }
+.cmds li::before { content: "›"; color: var(--faint); font-family: var(--mono); }
+.cmds code { flex: 1; min-width: 0; overflow-x: auto; white-space: pre; font: 14px/1.8 var(--mono); color: var(--ink); scrollbar-width: thin;
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent); padding-right: 20px; }
+.copy { padding: 5px 12px; border-radius: 7px; border: 1px solid var(--line2); background: var(--bg); color: var(--muted); font: 600 12px var(--sans); cursor: pointer; }
 .copy:hover { color: var(--ink); }
 .copy[data-done] { color: var(--go); border-color: var(--go); }
-.cap { margin: 0 0 6px; font-size: 13px; color: var(--muted); }
+.cap { margin: 0 0 8px; font-size: 14px; color: var(--muted); }
 
-.shot { margin: 8px 0 0; border: 1px solid var(--rule); border-radius: 12px; overflow: hidden; box-shadow: 0 30px 80px -40px rgba(0,0,0,.65); background: #0B0E11; }
-.shot img, .shot video { display: block; width: 100%; height: auto; }
-figure { margin: 0; }
-.session img { display: block; width: 100%; height: auto; border-radius: 14px; background: #0B0E11; }
-figcaption { font-size: 13px; color: var(--muted); margin-top: 10px; }
+/* The mission log */
+.log { background: linear-gradient(180deg, rgba(17, 26, 49, .92), rgba(10, 16, 32, .96)); border: 1px solid var(--line2); border-radius: 16px; box-shadow: 0 40px 100px -40px rgba(0, 0, 0, .8), inset 0 1px 0 rgba(255,255,255,.04); overflow: hidden; }
+.log-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 16px 18px 12px; border-bottom: 1px solid var(--line); }
+.log-head .title { font-weight: 600; font-size: 15px; line-height: 1.35; }
+.log-head .eyebrow { display: block; margin-bottom: 6px; font-size: 11px; }
+.clock { text-align: right; flex: none; }
+.clock b { display: block; font: 700 22px/1 var(--mono); letter-spacing: .02em; font-variant-numeric: tabular-nums; }
+.chip { display: inline-block; margin-top: 7px; padding: 3px 8px; border-radius: 6px; font: 700 10.5px/1.3 var(--mono); letter-spacing: .1em; border: 1px solid currentColor; color: var(--agent); }
+.chip[data-s="hold"] { color: var(--hold); }
+.chip[data-s="done"] { color: var(--go); }
+.gauges { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 18px; padding: 10px 18px 12px; border-bottom: 1px solid var(--line); font: 12px/1.4 var(--mono); color: var(--muted); }
+.gauge > span { display: flex; justify-content: space-between; gap: 8px; }
+.gauge span b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.bar { height: 4px; border-radius: 4px; background: var(--line); margin-top: 5px; overflow: hidden; }
+.bar i { display: block; height: 100%; width: var(--w, 0%); background: var(--agent); border-radius: 4px; transition: width .6s ease; }
+.rows { list-style: none; margin: 0; padding: 8px 0 10px; }
+.row { display: grid; grid-template-columns: 50px 62px minmax(0, 1fr); gap: 10px; align-items: baseline; padding: 6px 18px; font-size: 14.5px; line-height: 1.45; transition: opacity .45s ease, transform .45s ease, background .3s ease; }
+.row time { font: 12.5px/1.45 var(--mono); color: var(--faint); font-variant-numeric: tabular-nums; }
+.tag { font: 700 10.5px/1.45 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.t-you .tag { color: var(--you); } .t-agent .tag { color: var(--agent); } .t-hold .tag { color: var(--hold); } .t-go .tag, .t-done .tag { color: var(--go); } .t-budget .tag { color: var(--muted); }
+.row .msg { min-width: 0; overflow-wrap: anywhere; color: #D3D9E6; }
+.row .msg code { color: var(--ink); font-size: 13px; }
+.t-hold { background: linear-gradient(90deg, rgba(255, 181, 71, .10), transparent 70%); box-shadow: inset 2px 0 0 var(--hold); }
+.t-hold .wait { color: var(--hold); font-size: 13px; white-space: nowrap; }
+.t-hold .wait::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--hold); margin: 0 6px 1px 0; animation: pulse 1.6s ease-in-out infinite; }
+.t-hold.ok { background: linear-gradient(90deg, rgba(62, 224, 154, .08), transparent 70%); box-shadow: inset 2px 0 0 var(--go); }
+.t-hold.ok .tag { color: var(--go); }
+.t-hold.ok .wait { color: var(--go); }
+.t-hold.ok .wait::before { animation: none; background: var(--go); }
+.t-done .msg { color: var(--ink); font-weight: 600; }
+@keyframes pulse { 50% { opacity: .25; } }
+.log-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 18px 14px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--faint); }
+.replay { background: none; border: 1px solid var(--line2); color: var(--muted); border-radius: 7px; padding: 4px 10px; font: 600 12px var(--sans); cursor: pointer; }
+.replay:hover { color: var(--ink); }
+.js .rows .row { opacity: 0; transform: translateY(6px); }
+.js .rows .row.on { opacity: 1; transform: none; }
 
 /* Sections */
-section { padding-block: 56px; border-top: 1px solid var(--rule); }
-section > h2, .head h2 { font-size: clamp(26px, 3.6vw, 36px); line-height: 1.15; margin: 8px 0 14px; letter-spacing: -.015em; text-wrap: balance; }
-.lead { color: var(--muted); font-size: 17px; margin: 0 0 22px; max-width: 70ch; }
-.two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
-.grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
-.card { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 18px 20px; }
-.card h3 { margin: 6px 0 6px; font-size: 17px; }
-.card p { margin: 0; color: var(--muted); font-size: 15px; }
-.fail { border-left: 4px solid var(--nogo); }
-.tag { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .08em; }
-.tag.go { color: var(--go); } .tag.hold { color: var(--hold); } .tag.sig { color: var(--signal); } .tag.nogo { color: var(--nogo); }
+section { padding-block: 88px; }
+section + section { border-top: 1px solid var(--line); }
+.head { max-width: 760px; margin-bottom: 40px; }
+.head h2 { font-size: clamp(30px, 3.8vw, 44px); line-height: 1.08; letter-spacing: -.025em; margin: 14px 0 14px; font-weight: 700; text-wrap: balance; }
+.head p { color: var(--muted); font-size: 18px; margin: 0; }
 
-.tablebox { overflow-x: auto; border: 1px solid var(--rule); border-radius: 10px; background: var(--surface); }
-table { border-collapse: collapse; width: 100%; font-size: 15px; }
-th, td { text-align: left; padding: 11px 14px; border-top: 1px solid var(--rule); vertical-align: top; }
-thead th { border-top: 0; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
-tbody th { font-weight: 600; }
-.yes { color: var(--go); font-weight: 700; } .no { color: var(--muted); }
+/* Four things, each with a small piece of the console */
+.panels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 26px 26px 22px; display: flex; flex-direction: column; gap: 14px; }
+.panel h3 { margin: 0; font-size: 22px; line-height: 1.2; letter-spacing: -.01em; }
+.panel p { margin: 0; color: var(--muted); font-size: 16px; }
+.panel .k { font: 700 11px/1 var(--mono); letter-spacing: .14em; }
+.k.hold { color: var(--hold); } .k.go { color: var(--go); } .k.agent { color: var(--agent); } .k.you { color: var(--you); }
+.vig { margin-top: auto; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; font: 13px/1.75 var(--mono); color: #C9D1E0; overflow-x: auto; }
+.vig .l { display: grid; grid-template-columns: 58px minmax(0, 1fr); gap: 8px; }
+.vig .l > span:first-child { font-weight: 700; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; padding-top: 2px; }
+.vig .l > span:last-child { overflow-wrap: anywhere; }
+.c-you { color: var(--you); } .c-agent { color: var(--agent); } .c-hold { color: var(--hold); } .c-go { color: var(--go); } .c-nogo { color: var(--nogo); } .c-faint { color: var(--faint); }
+.meter { display: grid; grid-template-columns: 92px minmax(0, 1fr) auto; gap: 10px; align-items: center; }
+.meter > span { white-space: nowrap; }
+.meter .bar { margin: 0; height: 6px; }
+.meter b { font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; font-size: 12.5px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips code { border: 1px solid var(--line2); border-radius: 6px; padding: 2px 8px; font-size: 12.5px; color: var(--hold); background: rgba(255, 181, 71, .05); }
 
-.kit { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); gap: 28px; align-items: center; }
-.kit ul { margin: 0 0 20px; padding-left: 20px; }
-.kit li { margin-bottom: 8px; }
-.kit li strong { font-weight: 650; }
+/* Real session */
+.proof { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.6fr); gap: 40px; align-items: center; }
+.proof figure { margin: 0; }
+.proof img { display: block; width: 100%; height: auto; border-radius: 14px; border: 1px solid var(--line2); background: #0B0E11; box-shadow: 0 30px 80px -40px rgba(0,0,0,.9); }
+.proof ol { margin: 18px 0 0; padding-left: 20px; color: var(--muted); }
+.proof li { margin-bottom: 8px; }
+.proof li strong { color: var(--ink); font-weight: 600; }
 
-.steps { display: grid; grid-template-columns: minmax(0, 1fr); gap: 22px; }
-.price { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 16px; align-items: stretch; }
-.price .big { font-size: 52px; font-weight: 800; letter-spacing: -.02em; line-height: 1; }
-.price ul { margin: 14px 0 20px; padding-left: 20px; color: var(--muted); }
-.price .card { display: flex; flex-direction: column; }
-.price .card .btn { align-self: flex-start; margin-top: auto; }
+/* Comparison */
+.tablebox { overflow-x: auto; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 15.5px; min-width: 640px; }
+th, td { text-align: left; padding: 14px 18px; border-top: 1px solid var(--line); vertical-align: top; }
+thead th { border-top: 0; font: 600 12px/1.3 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+thead th:last-child { color: var(--go); }
+tbody th { font-weight: 600; width: 34%; }
+td { color: var(--muted); }
+td.yes { color: var(--ink); }
+td.yes::before { content: "✓ "; color: var(--go); font-weight: 700; }
 
-details { border-top: 1px solid var(--rule); padding-block: 14px; }
-details:first-of-type { border-top: 0; }
-summary { cursor: pointer; font-weight: 650; }
-details p { color: var(--muted); margin: 8px 0 0; max-width: 72ch; }
-.guide { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
-.guide p { margin: 0; color: var(--muted); max-width: 60ch; }
+/* Kit */
+.kit { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 40px; align-items: center; }
+.shot { border: 1px solid var(--line2); border-radius: 14px; overflow: hidden; background: #0B0E11; box-shadow: 0 30px 80px -40px rgba(0,0,0,.9); }
+.shot video, .shot img { display: block; width: 100%; height: auto; }
+.kit ul { margin: 18px 0 24px; padding: 0; list-style: none; display: grid; gap: 12px; }
+.kit li { padding-left: 26px; position: relative; color: var(--muted); }
+.kit li::before { content: ""; position: absolute; left: 2px; top: 9px; width: 10px; height: 10px; border-radius: 3px; border: 2px solid var(--go); }
+.kit li strong { color: var(--ink); font-weight: 600; }
+figcaption { font-size: 13.5px; color: var(--faint); margin-top: 12px; }
 
-footer { border-top: 1px solid var(--rule); padding-block: 28px 48px; color: var(--muted); font-size: 14px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-footer nav { display: flex; gap: 16px; flex-wrap: wrap; }
-:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
-@media (max-width: 860px) {
-  .two, .grid3, .price, .kit { grid-template-columns: minmax(0, 1fr); }
-  .hero { padding-block: 28px 16px; }
-  .hero .sub { font-size: 17px; }
-  section { padding-block: 44px; }
+/* Pricing */
+.plans { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; max-width: 900px; }
+.plans.three { grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: none; }
+.price s { color: var(--faint); }
+.plan { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 28px; display: flex; flex-direction: column; }
+.plan.pro { border-color: rgba(62, 224, 154, .45); background: linear-gradient(180deg, rgba(62, 224, 154, .06), var(--surface) 40%); }
+.plan h3 { margin: 0; font-size: 20px; }
+.price { font-size: 52px; font-weight: 700; letter-spacing: -.03em; line-height: 1; margin: 18px 0 4px; }
+.price small { font-size: 16px; font-weight: 500; color: var(--muted); letter-spacing: 0; }
+.plan .note { color: var(--muted); font-size: 14.5px; margin: 0; }
+.plan ul { list-style: none; padding: 0; margin: 20px 0 26px; display: grid; gap: 9px; font-size: 15.5px; }
+.plan li { padding-left: 24px; position: relative; }
+.plan li::before { content: "✓"; position: absolute; left: 0; color: var(--go); font-weight: 700; }
+.plan .btn { margin-top: auto; }
+.fine { color: var(--faint); font-size: 14px; margin: 18px 0 0; max-width: 80ch; }
+
+/* Under the hood */
+.hood { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 40px; }
+.events { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
+.events li { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 14px; padding: 12px 18px; border-top: 1px solid var(--line); font-size: 15px; color: var(--muted); }
+.events li:first-child { border-top: 0; }
+.events code { color: var(--ink); font-size: 13px; }
+.facts { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 24px; }
+.fact { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+.fact b { display: block; font-size: 22px; letter-spacing: -.01em; }
+.fact span { color: var(--muted); font-size: 14px; }
+
+/* FAQ */
+.faq { max-width: 820px; }
+details { border-top: 1px solid var(--line); padding-block: 18px; }
+details:last-child { border-bottom: 1px solid var(--line); }
+summary { cursor: pointer; font-weight: 600; font-size: 18px; list-style: none; display: flex; justify-content: space-between; gap: 16px; }
+summary::-webkit-details-marker { display: none; }
+summary::after { content: "+"; color: var(--faint); font: 400 22px/1 var(--mono); }
+details[open] summary::after { content: "–"; }
+details p { color: var(--muted); margin: 10px 0 0; max-width: 72ch; }
+
+/* Closing band */
+.dawn { border-top: 1px solid var(--line); background: radial-gradient(80% 120% at 50% 130%, rgba(255, 181, 71, .14), transparent 60%), var(--bg2); }
+.dawn .inner { padding-block: 80px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 40px; align-items: center; }
+.dawn h2 { font-size: clamp(30px, 3.8vw, 44px); line-height: 1.08; letter-spacing: -.025em; margin: 0 0 12px; }
+.dawn p { color: var(--muted); margin: 0; }
+
+footer { padding-block: 28px 48px; color: var(--faint); font-size: 14px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+footer nav { display: flex; gap: 18px; flex-wrap: wrap; }
+footer a { color: var(--muted); text-decoration: none; }
+footer a:hover { color: var(--ink); }
+
+@media (max-width: 980px) {
+  .plans.three { grid-template-columns: minmax(0, 1fr); max-width: 560px; }
+  .hero, .proof, .kit, .hood, .dawn .inner { grid-template-columns: minmax(0, 1fr); gap: 32px; }
+  .hero { padding-block: 120px 56px; }
+  section { padding-block: 64px; }
+}
+@media (max-width: 720px) {
+  body { font-size: 16px; }
+  .wrap { padding: 0 16px; }
   .top nav { gap: 14px; font-size: 14px; }
-  .copy { position: static; display: block; margin: 0 0 6px auto; }
-  .code pre { padding-right: 16px; }
+  .top nav .opt { display: none; }
+  .hero .sub { font-size: 17px; }
+  .panels, .plans, .facts { grid-template-columns: minmax(0, 1fr); }
+  .panel { padding: 22px 18px 18px; }
+  .row { grid-template-columns: 44px minmax(0, 1fr); gap: 2px 10px; padding: 7px 14px; }
+  .row .tag { grid-column: 2; grid-row: 1; }
+  .row .msg { grid-column: 2; }
+  .row time { grid-row: 1 / span 2; }
+  .log-head, .gauges, .log-foot { padding-inline: 14px; }
+  .events li { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .meter { grid-template-columns: 74px minmax(0, 1fr) auto; gap: 8px; font-size: 12px; }
+  .gauge .long { display: none; }
+}
+@media (max-width: 360px) {
+  .brand span { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation: none !important; transition: none !important; }
 }
 </style>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
-<div class="wrap">
-  <header class="top">
-    <a class="brand" href="./"><img src="favicon.svg" alt="" width="28" height="28">Long Run Labs <span>/ Agent Mission Control</span></a>
-    <nav aria-label="Main">
-      <a href="#features">Features</a><a href="#kit">The kit</a><a href="#install">Install</a><a href="#price">Pricing</a><a href="#faq">FAQ</a><a href="claude-code-overnight.html" data-track="nav-guide">Guide</a>
-    </nav>
-  </header>
-
-  <main id="main">
-  <div class="hero">
-    <span class="label">Claude Code plugin · free and MIT</span>
-    <h1>Let it run overnight. <em>Keep the GO button.</em></h1>
-    <p class="sub">Agent Mission Control <strong>holds risky commands until you approve them</strong>, <strong>caps what a long run can spend</strong>, and lets you <strong>steer it from the chat</strong> with <code>/mc</code>. The plugin runs on your machine and sends nothing anywhere.</p>
-    <div>
-      <p class="cap">Install it from the Claude Code prompt:</p>
-      <div class="code">
-<pre id="install-hero">/plugin marketplace add long-run-labs/agent-mission-control
-/plugin install agent-mission-control@long-run-labs</pre>
-        <button class="copy" type="button" data-copy="install-hero" data-umami-event="copy-install" data-umami-event-where="hero">Copy</button>
-      </div>
+<header class="site">
+  <div class="wrap">
+    <div class="top">
+      <a class="brand" href="./"><img src="favicon.svg" alt="" width="28" height="28">Long Run Labs <span>/ Mission Control</span></a>
+      <nav aria-label="Main">
+        <a href="#how" class="opt">How it works</a><a href="#kit" class="opt">The kit</a><a href="#pricing">Pricing</a><a href="claude-code-overnight.html" data-track="nav-guide">Guide</a><a href="https://github.com/long-run-labs/agent-mission-control" data-track="github-click" data-track-where="nav">GitHub</a>
+      </nav>
     </div>
-    <div class="cta">
-      <a class="btn go" href="https://buy.polar.sh/polar_cl_XzIYl3hBPBQKZT8p4Sn31PRBKXB7LYpEE45zi3KltXp" data-track="kit-click" data-track-where="hero">Get the kit · $15</a>
-      <a class="btn" href="https://github.com/long-run-labs/agent-mission-control" data-track="github-click" data-track-where="hero">View on GitHub</a>
-    </div>
-    <ul class="trust" aria-label="At a glance">
-      <li>Free plugin, MIT licensed</li><li>Zero dependencies</li><li>The plugin sends nothing</li><li>51 end-to-end tests</li><li>Independent review before each release</li>
-    </ul>
   </div>
+</header>
+<main id="main">
+<div class="sky">
+  <div class="wrap">
+    <div class="hero">
+      <div>
+        <span class="eyebrow">Claude Code plugin · free and MIT</span>
+        <h1>Let Claude Code run all night. <em>Keep the GO button.</em></h1>
+        <p class="sub">For long, unattended runs: <strong>risky commands like <code>git push</code> wait for your approval while the agent keeps working</strong>, <strong>budgets stop the run when they're spent</strong>, and a <strong>finish line</strong> keeps it going until the job is actually done.</p>
+        <p class="cap">Install from the Claude Code prompt. If it asks, run <code>/reload-plugins</code> after.</p>
+        <div class="code">
+<div class="bar-top"><span>Claude Code prompt · one line at a time</span></div>
+<ol class="cmds">
+<li><code id="ih-1">/plugin marketplace add long-run-labs/agent-mission-control</code><button class="copy" type="button" data-copy="ih-1" data-umami-event="copy-install" data-umami-event-where="hero-1" aria-label="Copy line 1">Copy</button></li>
+<li><code id="ih-2">/plugin install agent-mission-control@long-run-labs</code><button class="copy" type="button" data-copy="ih-2" data-umami-event="copy-install" data-umami-event-where="hero-2" aria-label="Copy line 2">Copy</button></li>
+</ol>
+        </div>
+        <div class="cta">
+          <a class="btn go" href="#how">See how a night goes</a>
+          <a class="btn" href="https://buy.polar.sh/polar_cl_XzIYl3hBPBQKZT8p4Sn31PRBKXB7LYpEE45zi3KltXp" data-track="kit-click" data-track-where="hero">Get the kit <small>$15</small></a>
+        </div>
+        <ul class="trust" aria-label="At a glance">
+          <li>Free plugin, MIT</li><li>The plugin sends nothing</li><li>Zero dependencies</li><li>51 end-to-end tests</li>
+        </ul>
+      </div>
 
-  <figure class="session">
-    <a href="img/mc-session.png" title="Open full size"><picture>
-      <source type="image/webp" srcset="img/mc-session-1160.webp 1160w, img/mc-session-2320.webp 2320w" sizes="(max-width: 1160px) 100vw, 1080px">
-      <img src="img/mc-session.png" alt="A real Claude Code session with the plugin. /mc goal sets the goal; /mc status shows a git push waiting for approval as a1; after /mc approve a1 the push runs and the mission completes." width="2320" height="880">
-    </picture></a>
-    <figcaption>From a real session: the agent's <code>git push</code> waited as a1 until <code>/mc approve a1</code>, then ran exactly as approved.</figcaption>
-  </figure>
+      <figure class="log" aria-labelledby="log-title" style="margin:0">
+        <div class="log-head">
+          <div><span class="eyebrow" style="color:var(--hold)">Illustration · one night</span><div class="title" id="log-title">Migrate the API tests to Vitest<span style="display:block;color:var(--faint);font-weight:500;font-size:13.5px">done when <code>npm test</code> passes</span></div></div>
+          <div class="clock" aria-hidden="true"><b id="clock">07:43</b><span class="chip" id="chip" data-s="done">DONE</span></div>
+        </div>
+        <div class="gauges" aria-hidden="true">
+          <div class="gauge"><span><span><span class="long">tool </span>calls</span> <b id="g-calls">1,874 / 2,000</b></span><div class="bar"><i id="b-calls" style="--w:94%"></i></div></div>
+          <div class="gauge"><span>minutes <b id="g-min">519 / 600</b></span><div class="bar"><i id="b-min" style="--w:87%"></i></div></div>
+        </div>
+        <ol class="rows" id="rows">
+          <li class="row t-you" data-at="23:04" data-calls="0" data-min="0"><time>23:04</time><span class="tag">you</span><span class="msg"><code>/mc goal Migrate the API tests to Vitest --done-when npm test passes</code></span></li>
+          <li class="row t-agent" data-at="23:05" data-calls="12" data-min="1"><time>23:05</time><span class="tag">agent</span><span class="msg">48 test files. Plan: convert one folder at a time and run each.</span></li>
+          <li class="row t-agent" data-at="00:37" data-calls="410" data-min="93"><time>00:37</time><span class="tag">agent</span><span class="msg"><code>tests/users</code> converted. 61 passing.</span></li>
+          <li class="row t-hold" id="hold" data-at="01:52" data-calls="702" data-min="168"><time>01:52</time><span class="tag">hold a1</span><span class="msg"><code>git push origin vitest-migration</code> <span class="wait" id="wait">waiting for your GO</span></span></li>
+          <li class="row t-agent" data-at="01:53" data-calls="704" data-min="169"><time>01:53</time><span class="tag">agent</span><span class="msg">a1 is held, so I'll keep going with <code>tests/billing</code>.</span></li>
+          <li class="row t-agent" data-at="03:18" data-calls="1190" data-min="254"><time>03:18</time><span class="tag">agent</span><span class="msg"><code>tests/billing</code> converted. 212 of 240 passing.</span></li>
+          <li class="row t-agent" data-at="05:55" data-calls="1866" data-min="411"><time>05:55</time><span class="tag">agent</span><span class="msg"><code>npm test</code>: 240 of 240 passing. Waiting on a1, then done.</span></li>
+          <li class="row t-you" data-at="07:42" data-calls="1866" data-min="518" data-approve><time>07:42</time><span class="tag">you</span><span class="msg"><code>/mc approve a1</code></span></li>
+          <li class="row t-go" data-at="07:42" data-calls="1871" data-min="518"><time>07:42</time><span class="tag">go</span><span class="msg">Ran exactly what you approved: <code>git push origin vitest-migration</code></span></li>
+          <li class="row t-done" data-at="07:43" data-calls="1874" data-min="519" data-done><time>07:43</time><span class="tag">done</span><span class="msg">Mission complete: <code>npm test</code> passes.</span></li>
+        </ol>
+        <figcaption class="log-foot" style="margin:0"><span>An illustration of one night. A real session is below.</span><button class="replay" type="button" id="replay" hidden>Replay</button></figcaption>
+      </figure>
+    </div>
+  </div>
+</div>
 
-  <section aria-labelledby="problem">
-    <span class="label">The problem</span>
-    <h2 id="problem">Long runs fail in two ways</h2>
-    <div class="two">
-      <div class="card fail"><h3>It stops too early</h3><p>A quiet stop halfway through a migration while you were asleep, with nobody to tell it to keep going.</p></div>
-      <div class="card fail"><h3>It doesn't stop when it should</h3><p>A force-push, a publish or an <code>rm -rf</code> it should have asked about, or three hours burned on a dead end.</p></div>
+<div class="wrap">
+  <section id="how" aria-labelledby="how-h">
+    <div class="head">
+      <span class="eyebrow">What it does while you sleep</span>
+      <h2 id="how-h">A human in the loop, without a human at the keyboard</h2>
+      <p>Long runs fail in two ways: they stop too early, or they don't stop when they should. Four small mechanisms cover both.</p>
+    </div>
+    <div class="panels">
+      <article class="panel">
+        <span class="k hold">HOLD</span>
+        <h3>Risky commands wait. The run doesn't.</h3>
+        <p><code>git push</code>, <code>npm publish</code>, <code>rm -rf</code> or any pattern you add is held as a1, a2… The agent is told it's queued and gets on with other work. <code>/mc approve a1</code> runs exactly that command, once, even when you send it remotely through Remote Control.</p>
+        <div class="chips" aria-label="Held by default or easy to add"><code>git push</code><code>npm publish</code><code>rm -rf</code><code>terraform apply</code><code>prisma migrate</code><code>your pattern *</code></div>
+        <div class="vig" role="img" aria-label="The agent tries a force push; it is held as a1 and the agent carries on with the docs.">
+          <div class="l"><span class="c-agent">agent</span><span>git push --force origin main</span></div>
+          <div class="l"><span class="c-hold">hold</span><span>a1 queued · waiting for your GO</span></div>
+          <div class="l"><span class="c-agent">agent</span><span>a1 is held. Moving on to the docs.</span></div>
+        </div>
+      </article>
+      <article class="panel">
+        <span class="k agent">BUDGET</span>
+        <h3>A budget it can't talk its way past.</h3>
+        <p>Cap tool calls, minutes and automatic continues. When tool calls or minutes run out, every tool call is refused and the agent is told to wrap up; when continues run out, the run is allowed to stop. A new goal starts a fresh budget.</p>
+        <div class="vig" role="img" aria-label="Three budget meters: tool calls nearly full, minutes at 70 percent, continues at 15 percent.">
+          <div class="meter"><span class="c-faint">tool calls</span><div class="bar"><i style="--w:96%;background:var(--hold)"></i></div><b>1,920 / 2,000</b></div>
+          <div class="meter"><span class="c-faint">minutes</span><div class="bar"><i style="--w:70%"></i></div><b>421 / 600</b></div>
+          <div class="meter"><span class="c-faint">continues</span><div class="bar"><i style="--w:15%"></i></div><b>3 / 25</b></div>
+          <div class="l" style="margin-top:6px"><span class="c-nogo">refuse</span><span>Tool calls spent. Every tool call is refused; wrap up.</span></div>
+        </div>
+      </article>
+      <article class="panel">
+        <span class="k go">FINISH LINE</span>
+        <h3>A finish line, not a loop.</h3>
+        <p>Give it a goal and a "done when". It keeps working until the agent marks the goal done, and stops on its own when it's waiting on you, out of budget, or stuck.</p>
+        <div class="vig" role="img" aria-label="Three decisions at the end of a turn: keep going when not done, stop when waiting on you, stop when stuck.">
+          <div class="l"><span class="c-go">stop?</span><span>Not done yet. Keep going (continue 3 of 25).</span></div>
+          <div class="l"><span class="c-hold">stop?</span><span>Waiting on a1. Stop and leave it for you.</span></div>
+          <div class="l"><span class="c-nogo">stop?</span><span>No tool calls since the last automatic continue. Stuck, so stop.</span></div>
+        </div>
+      </article>
+      <article class="panel">
+        <span class="k you">STEER</span>
+        <h3>Steer it without starting over.</h3>
+        <p>Send a note, answer its question, or check what it's doing, with <code>/mc</code> in the same chat. No restart, no lost context. Or send a note from another terminal and it arrives after the agent's next tool call.</p>
+        <div class="vig" role="img" aria-label="You send a note to keep the old endpoint; the agent adjusts its plan.">
+          <div class="l"><span class="c-you">you</span><span>/mc say keep the old endpoint working until v3</span></div>
+          <div class="l"><span class="c-agent">agent</span><span>Noted. Keeping /v2/export and adding a deprecation header.</span></div>
+          <div class="l"><span class="c-you">you</span><span>/mc status</span></div>
+        </div>
+      </article>
     </div>
   </section>
 
-  <section id="features" aria-labelledby="features-h">
-    <span class="label">What it does</span>
-    <h2 id="features-h">A human in the loop, without a human at the keyboard</h2>
-    <div class="grid3">
-      <div class="card"><span class="tag hold">HOLD</span><h3>Risky commands wait for your GO</h3><p><code>git push</code>, <code>npm publish</code>, <code>rm -rf</code> or your own patterns are held as a1, a2… The agent keeps working on other things. <code>/mc approve a1</code> runs exactly that command, once.</p></div>
-      <div class="card"><span class="tag hold">BUDGET</span><h3>Budgets that actually stop it</h3><p>Cap tool calls, minutes and automatic continues. When one runs out, every tool is refused and the agent is told to wrap up.</p></div>
-      <div class="card"><span class="tag sig">STEER</span><h3>Steer from the chat</h3><p><code>/mc say use the staging DB</code>, <code>/mc answer q1 Postgres</code>, <code>/mc status</code>. No restart, no lost context.</p></div>
-      <div class="card"><span class="tag go">GOAL</span><h3>A finish line it can't loop on</h3><p>Set a goal and a "done when". It keeps going until the agent marks it done, and lets the run stop when it's waiting on you, out of budget, or stuck.</p></div>
-      <div class="card"><span class="tag nogo">LOCKED</span><h3>It doesn't approve itself</h3><p>Your commands are refused when the agent tries them, through <code>mc</code> or by sending <code>/mc</code> another way, and starting a nested <code>claude</code> waits for your GO. If the state can't be read, tools are refused rather than the checks switching off.</p></div>
-      <div class="card"><span class="tag go">LOCAL</span><h3>The plugin sends nothing</h3><p>One JSON file per project, git-ignored. No network connections, no telemetry, no account.</p></div>
+  <section aria-labelledby="proof-h">
+    <div class="proof">
+      <div>
+        <span class="eyebrow">From a real session</span>
+        <h2 id="proof-h" style="font-size:clamp(28px,3.4vw,40px);line-height:1.1;letter-spacing:-.02em;margin:14px 0 12px">The same idea, in a real session</h2>
+        <p style="color:var(--muted);margin:0">An excerpt from a Claude Code session with the plugin installed, re-typeset to be readable. The tool calls between these lines are left out.</p>
+        <ol>
+          <li><strong><code>/mc goal</code></strong> sets the goal and its finish line.</li>
+          <li>The agent commits, then its <strong><code>git push</code> is held as a1</strong>.</li>
+          <li><strong><code>/mc approve a1</code></strong>: the push runs exactly as approved, and the mission completes.</li>
+        </ol>
+      </div>
+      <figure>
+        <a href="img/mc-session.png" title="Open full size"><picture>
+          <source type="image/webp" srcset="img/mc-session-1160.webp 1160w, img/mc-session-2320.webp 2320w" sizes="(max-width: 980px) 100vw, 700px">
+          <img src="img/mc-session.png" alt="A real Claude Code session with the plugin. /mc goal sets the goal; /mc status shows a git push waiting for approval as a1; after /mc approve a1 the push runs and the mission completes." width="2320" height="880" loading="lazy">
+        </picture></a>
+      </figure>
     </div>
   </section>
 
-  <section aria-labelledby="how">
-    <span class="label">Under the hood</span>
-    <h2 id="how">One hook on seven Claude Code events</h2>
-    <p class="lead">No daemon, no service: Claude Code calls one small Node.js script at these points, and it reads and writes one file.</p>
-    <div class="tablebox">
+  <section id="compare" aria-labelledby="compare-h">
+    <div class="head">
+      <span class="eyebrow">Works with what you already use</span>
+      <h2 id="compare-h">Claude Code already asks before risky steps. Here's what changes overnight.</h2>
+      <p>Permission prompts are built for someone at the keyboard. When nobody is, a prompt stops the whole run until morning. In auto mode, a push to your own repo just runs, and with skip-permissions nothing asks unless you've added an ask rule. Mission Control keeps the run moving and keeps the decision yours.</p>
+    </div>
+    <div class="tablebox" tabindex="0" role="region" aria-label="Comparison with Claude Code alone">
       <table>
-        <thead><tr><th scope="col">Event</th><th scope="col">What Mission Control does</th></tr></thead>
+        <thead><tr><th scope="col">Overnight, you want…</th><th scope="col">Claude Code alone</th><th scope="col">With Mission Control</th></tr></thead>
         <tbody>
-          <tr><td><code>SessionStart</code></td><td>Gives the agent the mission brief: goal, budget, open questions, recent log, how to report</td></tr>
-          <tr><td><code>UserPromptExpansion</code></td><td>Applies the <code>/mc</code> commands you type</td></tr>
-          <tr><td><code>UserPromptSubmit</code></td><td>Passes along anything new from you</td></tr>
-          <tr><td><code>PreToolUse</code></td><td>Refuses tools on hold or out of budget; holds commands that need a GO; keeps the agent out of its own state</td></tr>
-          <tr><td><code>PostToolUse</code> / <code>…Failure</code></td><td>Counts the call; delivers your notes, answers and decisions</td></tr>
-          <tr><td><code>Stop</code></td><td>While a goal is active, keeps going until it's done, unless it's waiting on you, out of budget, or stuck</td></tr>
+          <tr><th scope="row"><code>git push</code> to wait for you</th><td>Default mode: a prompt that pauses the whole run until you answer. Auto mode: a push to your repo runs without asking. A deny rule refuses it in every mode, so it can't run until you edit your settings.</td><td class="yes">Held as a1 in every permission mode, skip-permissions included, while the agent keeps working. You approve in the morning.</td></tr>
+          <tr><th scope="row">A hard limit on what a run can spend</th><td>Turn and dollar limits for headless <code>-p</code> runs only. Interactive sessions: a request in the prompt.</td><td class="yes">Tool-call and minute budgets in any session, refusing tools once spent, plus a cap on automatic continues</td></tr>
+          <tr><th scope="row">To keep going until it's done</th><td><code>/goal</code> keeps a session going until a condition holds</td><td class="yes">A finish line that also lets the run stop when it's waiting on you or out of budget. <code>/goal</code> has a separate model judge when it's done; here it's your done-when and the agent's own <code>mc done</code>. Use either</td></tr>
+          <tr><th scope="row">To approve when you're away</th><td>Remote Control forwards permission prompts to claude.ai and the Claude app. The run waits until you answer.</td><td class="yes">Held commands wait while the run keeps going. Send <code>/mc approve a1</code> through Remote Control whenever you look.</td></tr>
+          <tr><th scope="row">To change course mid-run</th><td>Interrupt and type</td><td class="yes"><code>/mc say</code> and <code>/mc answer</code>, or a note from another terminal that arrives after the next tool call</td></tr>
+          <tr><th scope="row">A record of the night</th><td>The transcript</td><td class="yes">A mission log: status, questions, holds and decisions, with <code>/mc status</code> and <code>/mc brief</code></td></tr>
         </tbody>
       </table>
     </div>
   </section>
 
   <section id="kit" aria-labelledby="kit-h">
-    <span class="label">The kit · $15</span>
     <div class="kit">
-      <figure>
+      <figure style="margin:0">
         <div class="shot"><video id="kitVideo" controls muted loop playsinline preload="metadata" poster="img/console-1280.webp" width="1280" height="720" aria-label="The Mission Control console. The agent's git push waits for GO, a question gets an answer, and HOLD pauses every tool call until resume.">
           <source src="img/console-demo.mp4" type="video/mp4">
         </video></div>
-        <figcaption>The console, running the sample mission that ships with the kit.</figcaption>
+        <figcaption>The kit's console, running the sample mission that ships with it.</figcaption>
       </figure>
       <div>
-        <h2 id="kit-h">For when you're not at the terminal</h2>
+        <span class="eyebrow">The kit · $15 once</span>
+        <h2 id="kit-h" style="font-size:clamp(28px,3.4vw,40px);line-height:1.1;letter-spacing:-.02em;margin:14px 0 0">For when you're away from the terminal</h2>
         <ul>
-          <li><strong>A live console</strong> at 127.0.0.1: GO / NO-GO buttons, one-click answers, budget gauges, a mission clock and a box to send notes.</li>
-          <li><strong>Phone and desktop alerts</strong> when the agent needs a GO, is blocked, stops or finishes. Phone alerts go through the free ntfy app, and you answer at your machine.</li>
+          <li><strong>A live console</strong> on 127.0.0.1: GO / NO-GO buttons, one-click answers, budget gauges, the mission clock and a box for notes.</li>
+          <li><strong>Phone and desktop alerts</strong> when the agent needs a GO, gets blocked, stops or finishes. Phone alerts use the free ntfy app.</li>
           <li><strong>A sample mission</strong>, so you can try the console before pointing it at real work.</li>
         </ul>
         <a class="btn go" href="https://buy.polar.sh/polar_cl_XzIYl3hBPBQKZT8p4Sn31PRBKXB7LYpEE45zi3KltXp" data-track="kit-click" data-track-where="kit">Get the kit · $15</a>
       </div>
     </div>
-    <div class="tablebox" style="margin-top:28px">
-      <table>
-        <thead><tr><th scope="col">Feature</th><th scope="col">Free plugin (MIT)</th><th scope="col">Kit ($15)</th></tr></thead>
-        <tbody>
-          <tr><th scope="row">Goal, finish line and budgets</th><td class="yes">Yes</td><td class="yes">Yes</td></tr>
-          <tr><th scope="row">GO / NO-GO, questions and notes</th><td class="yes">Yes, with <code>/mc</code> in the chat</td><td class="yes">Yes, <code>/mc</code> or one click</td></tr>
-          <tr><th scope="row">Live console with gauges and buttons</th><td class="no">No</td><td class="yes">Yes</td></tr>
-          <tr><th scope="row">Phone (ntfy) and desktop alerts</th><td class="no">No</td><td class="yes">Yes</td></tr>
-          <tr><th scope="row">Sample mission to try it first</th><td class="no">No</td><td class="yes">Yes</td></tr>
-          <tr><th scope="row">Install</th><td>Claude Code plugin</td><td>One command per project</td></tr>
-        </tbody>
-      </table>
-    </div>
   </section>
 
-  <section id="install" aria-labelledby="install-h">
-    <span class="label">Install</span>
-    <h2 id="install-h">Running in a minute</h2>
-    <div class="steps">
-      <div>
-        <p class="cap">1. The free plugin, from the Claude Code prompt. It does nothing in a project until you give it a goal there.</p>
-        <div class="code">
-<pre id="install-plugin">/plugin marketplace add long-run-labs/agent-mission-control
-/plugin install agent-mission-control@long-run-labs</pre>
-        <button class="copy" type="button" data-copy="install-plugin" data-umami-event="copy-install" data-umami-event-where="install">Copy</button>
-      </div>
-      </div>
-      <div>
-        <p class="cap">2. In your project, give it a goal and, for a long run, the budget for it:</p>
-        <div class="code">
-<pre id="install-goal">/mc goal Ship the CSV export --done-when tests pass and a PR is open
-/mc set maxMinutes 600
-/mc set maxToolCalls 2000</pre>
-        <button class="copy" type="button" data-copy="install-goal" data-umami-event="copy-goal">Copy</button>
-      </div>
-      </div>
-      <div>
-        <p class="cap">The kit, from the folder you unzipped. In that project, the kit's copy takes over from the plugin.</p>
-        <div class="code">
-<pre id="install-kit">node install.mjs /path/to/your/project
-cd /path/to/your/project &amp;&amp; node .mission/cli/mc.mjs ui   # prints the console's private link</pre>
-        <button class="copy" type="button" data-copy="install-kit" data-umami-event="copy-kit-install">Copy</button>
-      </div>
-      </div>
+  <section id="pricing" aria-labelledby="pricing-h">
+    <div class="head">
+      <span class="eyebrow">Pricing</span>
+      <h2 id="pricing-h">Free for the core. $15 once for the console.</h2>
     </div>
-    <p class="lead" style="margin-top:18px">Needs Claude Code and Node.js 18.17 or newer on your <code>PATH</code>. Tested on macOS; Linux and Windows aren't tested yet.</p>
-  </section>
-
-  <section id="price" aria-labelledby="price-h">
-    <span class="label">Pricing</span>
-    <div class="price">
-      <div>
-        <h2 id="price-h">Free to start. $15 once for the console.</h2>
-        <p class="lead">The plugin is free and MIT licensed, for good. The kit is a one-time purchase: use it on all your own projects, personal or commercial, and share it inside your team. Every purchase funds the free plugin.</p>
-        <p class="lead">Payments are handled by <a href="https://polar.sh">Polar</a>, the merchant of record, which also takes care of sales tax and receipts.</p>
+    <div class="plans">
+      <div class="plan">
+        <h3>Plugin</h3>
+        <div class="price">$0 <small>MIT, free forever</small></div>
+        <p class="note">Everything that keeps a long run safe and on track.</p>
+        <ul><li>Holds for risky commands, with <code>/mc approve</code></li><li>Tool-call, minute and continue budgets</li><li>Goal with a finish line</li><li>Notes, questions and <code>/mc status</code></li></ul>
+        <a class="btn" href="#install" data-track="plan-free">Install the plugin</a>
       </div>
-      <div class="card">
-        <span class="label">The kit</span>
-        <div class="big" style="margin-top:8px">$15</div>
-        <span style="color:var(--muted);font-size:14px">one-time · instant download</span>
-        <ul><li>Live console, phone and desktop alerts</li><li>Installer, hook, <code>/mc</code> and the <code>mc</code> command line, agent skills</li><li>Sample mission, end-to-end tests and README</li><li>Updates to the 1.x line</li></ul>
+      <div class="plan pro">
+        <h3>Kit</h3>
+        <div class="price">$15 <small>one-time</small></div>
+        <p class="note">Everything in the plugin, plus what you need when you're not at a terminal.</p>
+        <ul><li>Live console with GO / NO-GO buttons</li><li>Phone (ntfy) and desktop alerts when something is held</li><li>Sample mission to try it first</li><li>All 1.x updates</li></ul>
         <a class="btn go" href="https://buy.polar.sh/polar_cl_XzIYl3hBPBQKZT8p4Sn31PRBKXB7LYpEE45zi3KltXp" data-track="kit-click" data-track-where="pricing">Get the kit</a>
       </div>
+    </div>
+    <p class="fine">Use the kit on all your own projects, personal or commercial, and share it inside your team. Payments, tax and receipts are handled by <a href="https://polar.sh">Polar</a>, the merchant of record. Every purchase funds the free plugin.</p>
+  </section>
+
+  <section id="hood" aria-labelledby="hood-h">
+    <div class="hood">
+      <div>
+        <span class="eyebrow">Under the hood</span>
+        <h2 id="hood-h" style="font-size:clamp(28px,3.4vw,40px);line-height:1.1;letter-spacing:-.02em;margin:14px 0 12px">One script, seven hooks, one file</h2>
+        <p style="color:var(--muted);margin:0">No daemon and no service. Claude Code calls one small Node.js script at these points, and it reads and writes one JSON file in your project, kept out of git.</p>
+        <div class="facts">
+          <div class="fact"><b>0</b><span>dependencies and network calls</span></div>
+          <div class="fact"><b>51</b><span>end-to-end tests, run in throwaway repos</span></div>
+          <div class="fact"><b>1</b><span>file of state per project</span></div>
+          <div class="fact"><b>7</b><span>Claude Code hook events, nothing else running</span></div>
+        </div>
+      </div>
+      <ul class="events">
+        <li><span><code>SessionStart</code></span><span>Gives the agent the mission brief: goal, budget, open questions, recent log</span></li>
+        <li><span><code>UserPromptExpansion</code></span><span>Applies the <code>/mc</code> commands you type</span></li>
+        <li><span><code>UserPromptSubmit</code></span><span>Passes along anything new from you</span></li>
+        <li><span><code>PreToolUse</code></span><span>Holds commands that need a GO; refuses tools when paused or out of budget</span></li>
+        <li><span><code>PostToolUse</code>, <code>…Failure</code></span><span>Counts the call; delivers your notes, answers and decisions</span></li>
+        <li><span><code>Stop</code></span><span>Keeps going until done, unless it's waiting on you, out of budget, or stuck</span></li>
+      </ul>
     </div>
   </section>
 
   <section id="faq" aria-labelledby="faq-h">
-    <span class="label">FAQ</span>
-    <h2 id="faq-h">Questions</h2>
-    <details><summary>Why not just Claude Code's /goal?</summary><p><code>/goal</code> keeps a run going until a condition holds, and that's the part of long runs it covers. Mission Control has its own finish line, and adds what <code>/goal</code> doesn't: commands that wait for your GO while the agent keeps working, budgets that refuse tools once they're spent, and notes and answers you send mid-run.</p></details>
-    <details><summary>Does it send my code or prompts anywhere?</summary><p>No. The free plugin makes no network connections at all. The kit runs on your machine too. Its one exception is phone alerts, which are optional: each one carries the command waiting for approval, or the agent's question or summary, to ntfy.sh (topics are readable by anyone who guesses the name) or to your own ntfy server. Details are in the <a href="privacy.html">privacy policy</a>.</p></details>
-    <details><summary>Can the agent approve its own commands?</summary><p>Not by any ordinary route. Your commands, like approve, resume and reset-budget, are refused when the agent tries them, and so is anything chained onto <code>mc</code> or touching its state folder. A <code>/mc</code> only counts when a person types it in a session they're attending: one sent through a nested <code>claude -p</code>, a scheduled prompt or a script is refused, and starting any nested <code>claude</code> waits for your GO. Like the approval patterns, which match command text, this is a seatbelt, not a sandbox: an agent that deliberately disguises a command can get past it. The skill tells it not to, and Claude Code's own permissions still apply.</p></details>
-    <details><summary>What happens when the agent stops?</summary><p>When it's waiting on you (a held command or a blocking question), type <code>/mc approve a1</code> or <code>/mc answer q1 …</code> in its session and it carries on. If you answer in the console or a terminal instead, type <code>continue</code> in its session afterwards, or run <code>claude -p --continue</code> for headless runs.</p></details>
-    <details><summary>Can I steer while it's working?</summary><p>Yes, with one catch. A <code>/mc</code> you type while the agent is working waits until the run stops, so press Esc first to send it right away. Esc stops the current step, and the agent picks up again after your <code>/mc</code>. Or run <code>mc say …</code> in a terminal: the note reaches the agent at its next tool call, without interrupting it.</p></details>
-    <details><summary>Can I approve from my phone?</summary><p>Not yet. With the kit, your phone gets the alert, and you approve at your machine, with <code>/mc</code> in the chat or in the console. The console is local-only on purpose.</p></details>
-    <details><summary>Does it work with my team's settings?</summary><p>The plugin is installed per person and keeps each project's state in a git-ignored <code>.mission/</code> folder. The kit's installer writes to your own <code>.claude/settings.local.json</code> by default; use <code>--shared</code> to put the hook in the committed settings for the whole team.</p></details>
-    <details><summary>Linux and Windows?</summary><p>It's plain Node.js with no dependencies, and the hook is written to work under Git Bash and PowerShell, but so far it's only been tested on macOS. If you try it elsewhere, an issue with what you saw helps a lot.</p></details>
-    <details><summary>How do I get help?</summary><p>Open an issue on the <a href="https://github.com/long-run-labs/agent-mission-control/issues">GitHub repo</a>. For anything about a purchase, open one titled "Purchase", with no personal details, and we'll reply there with a private way to reach us.</p></details>
-  </section>
-
-  <section aria-labelledby="guide-h">
-    <div class="guide">
-      <div>
-        <span class="label">Guide</span>
-        <h2 id="guide-h" style="margin:8px 0 6px;font-size:24px">Rather wire it up yourself?</h2>
-        <p>Three small hooks that keep a run going without looping, and hold risky commands instead of asking an empty room. Tested, with the gotchas we hit.</p>
-      </div>
-      <a class="btn" href="claude-code-overnight.html" data-track="guide-click">Read the guide</a>
+    <div class="head"><span class="eyebrow">FAQ</span><h2 id="faq-h">Questions</h2></div>
+    <div class="faq">
+      <details><summary>How is this different from permission prompts?</summary><p>A permission prompt asks right away and waits. That's right when you're at the keyboard. Overnight, it stops the whole run until morning, and in auto or skip-permissions mode a push to your repo doesn't ask at all. A hold queues just that command as a1, tells the agent to carry on with other work, and runs exactly what you approved, once. Claude Code's own permissions still apply on top.</p></details>
+      <details><summary>Why not just Claude Code's /goal?</summary><p><code>/goal</code> keeps a run going until a condition holds. Mission Control has its own finish line, so you don't need both, and adds what <code>/goal</code> doesn't: holds that don't block the run, budgets that refuse tools once they're spent, and notes and answers mid-run.</p></details>
+      <details><summary>Does it send my code or prompts anywhere?</summary><p>No. The free plugin makes no network connections at all. The kit runs on your machine too; its one exception is optional phone alerts, which send a short text (the held command, or the agent's question or summary) to ntfy.sh or your own ntfy server. Details are in the <a href="privacy.html">privacy policy</a>.</p></details>
+      <details><summary>Can the agent approve its own commands?</summary><p>Not by any ordinary route. Your commands, like approve, resume and reset-budget, are refused when the agent tries them, and so is anything chained onto <code>mc</code> or touching its state. A <code>/mc</code> only counts when a person types it in a session they're attending: one sent through a nested <code>claude -p</code>, a scheduled prompt or a script is refused, and starting any nested <code>claude</code> waits for your GO. It's a seatbelt, not a sandbox: an agent that deliberately disguises a command can get past pattern matching, and a Claude Code mod you install can override a hold, so Claude Code's own permissions still matter.</p></details>
+      <details><summary>Can I steer while it's working?</summary><p>Yes. A <code>/mc</code> typed while the agent is mid-step waits until that step ends, so press Esc first to send it right away; the agent picks up again after your <code>/mc</code>. Or run <code>mc say …</code> in another terminal, and the note reaches the agent after its next tool call without interrupting it.</p></details>
+      <details><summary>Can I approve when I'm away from the machine?</summary><p>Yes, with Claude Code's <a href="https://code.claude.com/docs/en/remote-control">Remote Control</a>. Turn it on for the session, then send <code>/mc approve a1</code> from claude.ai/code. We tested this in a desktop browser: the web composer says "/mc isn't a command here", but the message still reaches your session and the held command runs. We haven't tried it from a phone yet. Remote Control needs a claude.ai subscription login, not an API key. The kit adds phone alerts when something is held, so you know when to look. <a href="approve-remotely.html">Step-by-step guide</a>.</p></details>
+      <details><summary>Linux and Windows?</summary><p>It's plain Node.js 18.17+ with no dependencies, but so far it's only been tested on macOS. If you try it elsewhere, an issue with what you saw helps a lot.</p></details>
+      <details><summary>How do I get help?</summary><p>Open an issue on <a href="https://github.com/long-run-labs/agent-mission-control/issues">GitHub</a>. For anything about a purchase, open one titled "Purchase", with no personal details, and we'll reply there with a private way to reach us.</p></details>
     </div>
   </section>
-  </main>
+</div>
 
+<div class="dawn" id="install">
+  <div class="wrap inner">
+    <div>
+      <h2>Start tonight's run.</h2>
+      <p>Install the plugin, give it a goal and a budget, and go to bed. It does nothing in a project until you set a goal there. The minute budget counts from when you set the goal, including hours spent waiting for you, so give it room for the morning.</p>
+    </div>
+    <div>
+      <div class="code">
+<div class="bar-top"><span>Claude Code prompt · one line at a time</span></div>
+<ol class="cmds">
+<li><code id="ie-1">/plugin marketplace add long-run-labs/agent-mission-control</code><button class="copy" type="button" data-copy="ie-1" data-umami-event="copy-install" data-umami-event-where="end-1" aria-label="Copy line 1">Copy</button></li>
+<li><code id="ie-2">/plugin install agent-mission-control@long-run-labs</code><button class="copy" type="button" data-copy="ie-2" data-umami-event="copy-install" data-umami-event-where="end-2" aria-label="Copy line 2">Copy</button></li>
+<li><code id="ie-3">/mc goal Ship the CSV export --done-when tests pass and a PR is open</code><button class="copy" type="button" data-copy="ie-3" data-umami-event="copy-install" data-umami-event-where="end-3" aria-label="Copy line 3">Copy</button></li>
+<li><code id="ie-4">/mc set maxToolCalls 2000</code><button class="copy" type="button" data-copy="ie-4" data-umami-event="copy-install" data-umami-event-where="end-4" aria-label="Copy line 4">Copy</button></li>
+<li><code id="ie-5">/mc set maxMinutes 900</code><button class="copy" type="button" data-copy="ie-5" data-umami-event="copy-install" data-umami-event-where="end-5" aria-label="Copy line 5">Copy</button></li>
+</ol>
+      </div>
+      <p class="cap" style="margin-top:10px">Needs Claude Code and Node.js 18.17+. Tested on macOS. Prefer to wire it up yourself? <a href="claude-code-overnight.html" data-track="guide-click">Read the guide</a>.</p>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<div class="wrap">
   <footer>
-    <span>© 2026 Long Run Labs</span>
+    <span>© 2026 Long Run Labs · Not affiliated with Anthropic. Claude and Claude Code are Anthropic's products.</span>
     <nav aria-label="Footer">
       <a href="https://github.com/long-run-labs/agent-mission-control">GitHub</a>
       <a href="https://github.com/long-run-labs/agent-mission-control/issues">Support</a>
-      <a href="claude-code-overnight.html">Guide</a>
+      <a href="claude-code-overnight.html">Overnight guide</a>
+      <a href="approve-remotely.html">Approve remotely</a>
+      <a href="stop-claude-code-git-push.html">Stop unapproved pushes</a>
       <a href="privacy.html">Privacy</a>
+      <a href="https://x.com/L0NGRUNLABS">X</a>
     </nav>
   </footer>
 </div>
+
 <script>
-// Copy buttons: copy the <pre> they point at, then say so (for screen readers too).
+// Copy buttons copy their <pre> without the prompt marks, then say so (for screen readers too).
 document.querySelectorAll("[data-copy]").forEach((b) => {
+  b.setAttribute("aria-live", "polite");
   b.addEventListener("click", async () => {
-    const text = document.getElementById(b.dataset.copy).textContent.replace(/\s+#.*$/gm, "");
+    const text = document.getElementById(b.dataset.copy).textContent.trim();
     try { await navigator.clipboard.writeText(text); b.textContent = "Copied"; b.dataset.done = ""; }
     catch { b.textContent = "Select and copy"; }
     setTimeout(() => { b.textContent = "Copy"; delete b.dataset.done; }, 1800);
   });
-  b.setAttribute("aria-live", "polite");
 });
-// Link clicks reach Umami (keepalive) without holding the click; its own link handler waits for the request.
+// Link clicks reach Umami (keepalive) without holding the click.
 document.addEventListener("click", (e) => {
   const a = e.target.closest("a[data-track]");
   if (a && window.umami) window.umami.track(a.dataset.track, a.dataset.trackWhere ? { where: a.dataset.trackWhere } : undefined);
 });
 // The kit video plays on its own only for people who haven't asked for reduced motion.
+const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const kitVideo = document.getElementById("kitVideo");
-if (kitVideo && !matchMedia("(prefers-reduced-motion: reduce)").matches) kitVideo.play().catch(() => {});
+if (kitVideo && !still) kitVideo.play().catch(() => {});
+
+// The mission log plays the night once: rows appear, the clock and budget follow, a1 turns GO.
+(() => {
+  const rows = [...document.querySelectorAll("#rows .row")];
+  const clock = document.getElementById("clock"), chip = document.getElementById("chip");
+  const hold = document.getElementById("hold"), wait = document.getElementById("wait");
+  const replay = document.getElementById("replay");
+  const fmt = (n) => n.toLocaleString("en-US");
+  const set = (r) => {
+    clock.textContent = r.dataset.at;
+    const calls = +r.dataset.calls, min = +r.dataset.min;
+    document.getElementById("g-calls").textContent = `${fmt(calls)} / 2,000`;
+    document.getElementById("g-min").textContent = `${min} / 600`;
+    document.getElementById("b-calls").style.setProperty("--w", `${calls / 20}%`);
+    document.getElementById("b-min").style.setProperty("--w", `${min / 6}%`);
+  };
+  const state = (s) => { chip.dataset.s = s; chip.textContent = s === "hold" ? "1 HOLD" : s === "done" ? "DONE" : "RUNNING"; };
+  const approve = (on) => { hold.classList.toggle("ok", on); wait.textContent = on ? "approved at 07:42" : "waiting for your GO"; };
+  const finish = () => { rows.forEach((r) => r.classList.add("on")); set(rows[rows.length - 1]); state("done"); approve(true); };
+  let timers = [];
+  const play = () => {
+    timers.forEach(clearTimeout); timers = [];
+    rows.forEach((r) => r.classList.remove("on")); approve(false); state("running"); set(rows[0]); replay.hidden = true;
+    rows.forEach((r, i) => timers.push(setTimeout(() => {
+      r.classList.add("on"); set(r);
+      if (r.id === "hold") state("hold");
+      if (r.hasAttribute("data-approve")) approve(true);
+      if (r.hasAttribute("data-done")) { state("done"); replay.hidden = false; }
+    }, 500 + i * 900 + (i > 6 ? 900 : 0))));
+  };
+  replay.addEventListener("click", play);
+  if (still || !("IntersectionObserver" in window)) { finish(); replay.hidden = false; return; }
+  const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) { io.disconnect(); play(); } }, { threshold: .3 });
+  io.observe(document.getElementById("rows"));
+})();
 </script>
 </body>
 </html>

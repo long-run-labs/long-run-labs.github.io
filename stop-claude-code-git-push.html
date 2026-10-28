@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How to stop Claude Code from pushing without you · Long Run Labs</title>
+<meta name="description" content="Three ways to keep Claude Code from running git push on its own: a deny rule, an ask rule, or a hold you approve later. What each does in manual, auto and skip-permissions mode, and a server-side backstop.">
+<link rel="canonical" href="https://long-run-labs.github.io/stop-claude-code-git-push.html">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preload" href="fonts/instrument-sans.woff2" as="font" type="font/woff2" crossorigin>
+<meta name="theme-color" content="#070B14">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Long Run Labs">
+<meta property="og:url" content="https://long-run-labs.github.io/stop-claude-code-git-push.html">
+<meta property="og:title" content="How to stop Claude Code from pushing without you">
+<meta property="og:description" content="Deny, ask, or hold: what each does in manual, auto and skip-permissions mode, plus a server-side backstop.">
+<meta property="og:image" content="https://long-run-labs.github.io/img/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<script defer src="https://cloud.umami.is/script.js" data-website-id="5f7073ba-6949-42cc-957e-8370b017b8b6" data-domains="long-run-labs.github.io" data-do-not-track="true" data-exclude-hash="true"></script>
+<style>
+@font-face { font-family: "Instrument Sans"; src: url("fonts/instrument-sans.woff2") format("woff2"); font-weight: 400 700; font-display: swap; }
+@font-face { font-family: "JetBrains Mono"; src: url("fonts/jetbrains-mono.woff2") format("woff2"); font-weight: 400 800; font-display: swap; }
+:root { --bg: #070B14; --bg2: #0A1020; --surface: #0D1426; --line: #1D2842; --line2: #2A3757; --ink: #E9EDF5; --muted: #98A4BD; --faint: #8794AF;
+  --you: #C4B5FD; --agent: #8AB4FF; --hold: #FFB547; --go: #3EE09A;
+  --sans: "Instrument Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; --mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace; color-scheme: dark; }
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: linear-gradient(180deg, var(--bg), var(--bg2) 600px, var(--bg)); color: var(--ink); font: 17.5px/1.7 var(--sans); -webkit-font-smoothing: antialiased; }
+a { color: var(--agent); text-underline-offset: 3px; }
+code { font-family: var(--mono); font-size: .84em; color: var(--ink); background: rgba(138, 180, 255, .08); padding: .1em .35em; border-radius: 5px; }
+.wrap { max-width: 760px; margin: 0 auto; padding: 0 24px; }
+:focus-visible { outline: 2px solid var(--agent); outline-offset: 3px; border-radius: 4px; }
+nav.top { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding-block: 20px; flex-wrap: wrap; }
+.brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 700; text-decoration: none; color: var(--ink); }
+.brand img { border-radius: 7px; }
+nav.top .links { display: flex; gap: 18px; font-size: 15px; }
+nav.top .links a { color: var(--muted); text-decoration: none; }
+.eyebrow { font: 600 12.5px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+h1 { font-size: clamp(34px, 5.2vw, 50px); line-height: 1.06; letter-spacing: -.03em; margin: 16px 0 14px; text-wrap: balance; }
+.lede { font-size: 20px; color: var(--muted); margin: 0 0 8px; }
+.meta { font-size: 14px; color: var(--faint); margin: 0 0 32px; }
+h2 { font-size: 26px; line-height: 1.2; letter-spacing: -.015em; margin: 48px 0 10px; }
+p, li { color: #CDD4E2; }
+strong { color: var(--ink); }
+.tldr { border: 1px solid var(--line2); border-radius: 14px; background: var(--surface); padding: 18px 22px; }
+.tldr p { margin: 0; }
+pre { margin: 14px 0; background: var(--surface); border: 1px solid var(--line2); border-radius: 12px; padding: 14px 16px; overflow-x: auto; font: 14px/1.7 var(--mono); color: var(--ink); }
+pre .c { color: var(--faint); }
+ol.steps { padding-left: 0; list-style: none; counter-reset: s; }
+ol.steps > li { counter-increment: s; position: relative; padding-left: 46px; margin-bottom: 26px; }
+ol.steps > li::before { content: counter(s); position: absolute; left: 0; top: 2px; width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--line2); display: grid; place-items: center; font: 700 14px var(--mono); color: var(--go); }
+ol.steps h3 { margin: 0 0 4px; font-size: 19px; }
+.log { border: 1px solid var(--line2); border-radius: 14px; background: var(--surface); padding: 12px 0; font: 14px/1.6 var(--mono); }
+.log div { display: grid; grid-template-columns: 54px 70px minmax(0, 1fr); gap: 8px; padding: 5px 18px; }
+.log span:first-child { color: var(--faint); }
+.log .y { color: var(--you); } .log .a { color: var(--agent); } .log .h { color: var(--hold); } .log .g { color: var(--go); }
+.log span:last-child { overflow-wrap: anywhere; color: #D3D9E6; }
+.log .hl { box-shadow: inset 2px 0 0 var(--hold); background: linear-gradient(90deg, rgba(255,181,71,.08), transparent 70%); }
+table { width: 100%; border-collapse: collapse; font-size: 15.5px; margin: 14px 0; }
+th, td { text-align: left; padding: 10px 12px; border-top: 1px solid var(--line); vertical-align: top; }
+thead th { border-top: 0; font: 600 12px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+td { color: var(--muted); }
+.tablebox { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.tablebox table { margin: 0; min-width: 560px; }
+.cta { margin: 56px 0 0; border: 1px solid rgba(62, 224, 154, .4); border-radius: 16px; padding: 22px 24px; background: linear-gradient(180deg, rgba(62, 224, 154, .06), var(--surface)); }
+.cta h2 { margin: 0 0 6px; font-size: 22px; }
+.cta p { margin: 0 0 14px; color: var(--muted); }
+.btn { display: inline-flex; padding: 11px 18px; border-radius: 10px; background: var(--go); color: #04140C; font-weight: 600; text-decoration: none; }
+footer { margin-top: 64px; padding-block: 24px 48px; border-top: 1px solid var(--line); color: var(--faint); font-size: 14px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+footer a { color: var(--muted); text-decoration: none; margin-left: 16px; }
+@media (max-width: 640px) { .tablebox table { min-width: 0; } .stack thead { display: none; } .stack tr, .stack th, .stack td { display: block; } .stack tr { padding: 10px 0; border-top: 1px solid var(--line); } .stack tr:first-child { border-top: 0; } .stack th, .stack td { border: 0; padding: 2px 14px; } .stack td[data-label]::before { content: attr(data-label) ": "; color: var(--faint); font: 600 12px var(--mono); } body { font-size: 16.5px; } .wrap { padding: 0 16px; } .log div { grid-template-columns: 46px minmax(0, 1fr); } .log div span:nth-child(2) { grid-column: 2; } .log div span:last-child { grid-column: 2; } .log div span:first-child { grid-row: 1 / span 2; } nav.top .links .opt { display: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="top" aria-label="Main">
+    <a class="brand" href="./"><img src="favicon.svg" alt="" width="26" height="26">Long Run Labs</a>
+    <span class="links"><a href="./" class="opt">Mission Control</a><a href="approve-remotely.html" class="opt">Approve remotely</a><a href="claude-code-overnight.html">Overnight guide</a><a href="https://github.com/long-run-labs/agent-mission-control">GitHub</a></span>
+  </nav>
+
+  <main>
+    <span class="eyebrow">Guide · Claude Code</span>
+    <h1>How to stop Claude Code from pushing without you</h1>
+    <p class="lede">Refuse it, ask every time, or hold it for later. What each one does in manual, auto and skip-permissions mode, and a backstop that lives on the server.</p>
+    <p class="meta">Checked against Claude Code's permission and hooks docs on 2026-10-28.</p>
+
+    <div class="tldr"><p><strong>Short version:</strong> a <strong>deny rule</strong> refuses <code>git push</code> in every mode, skip-permissions included. If you want the push to happen later, once you've looked, <strong>hold</strong> it with a <code>PreToolUse</code> hook instead, so the run keeps going. Either way, <strong>protect your main branch on the server</strong>, and make sure the credentials on the agent's machine can't change repo settings.</p></div>
+
+    <h2>What happens to <code>git push</code> in each mode</h2>
+    <div class="tablebox"><table class="stack">
+      <thead><tr><th scope="col">Setup</th><th scope="col">Manual mode</th><th scope="col">Auto mode</th><th scope="col">Skip-permissions</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Nothing configured</th><td data-label="Manual">A prompt; the run waits for your answer</td><td data-label="Auto">Runs without asking (pushes to the repo you're in are allowed by default, except branches named like <code>production</code> or <code>gh-pages</code>)</td><td data-label="Skip-permissions">Runs</td></tr>
+        <tr><th scope="row">Deny rule</th><td data-label="Manual">Refused</td><td data-label="Auto">Refused</td><td data-label="Skip-permissions">Refused</td></tr>
+        <tr><th scope="row">Ask rule</th><td data-label="Manual">A prompt; the run waits</td><td data-label="Auto">A prompt; the run waits</td><td data-label="Skip-permissions">A prompt; the run waits</td></tr>
+        <tr><th scope="row">Hold (hook)</th><td data-label="Manual">Queued; the run continues</td><td data-label="Auto">Queued; the run continues</td><td data-label="Skip-permissions">Queued; the run continues</td></tr>
+      </tbody>
+    </table></div>
+    <p>Sources: <a href="https://code.claude.com/docs/en/permission-modes">permission modes</a> ("Deny rules block in every mode, including <code>bypassPermissions</code>"; auto mode allows "pushing to any branch of the repository you're working in"; explicit ask rules still prompt in manual, auto and skip-permissions mode) and the <a href="https://code.claude.com/docs/en/hooks-guide">hooks guide</a> (<code>PreToolUse</code> hooks fire before the permission check, in every permission mode). One exception to all of this: a mod you've installed can approve an action itself, when there are no managed settings and no Team or Enterprise login.</p>
+
+    <h2>1. Refuse it: a deny rule</h2>
+    <p>In <code>.claude/settings.json</code> (shared with your team) or <code>.claude/settings.local.json</code> (just you):</p>
+<pre>{
+  "permissions": {
+    "deny": ["Bash(git push *)"]
+  }
+}</pre>
+    <p>Deny rules are checked first, before ask and allow rules, and an allow rule can't carve an exception out of one. The agent is told the command was refused. Good for "never, in this project". Not so good for overnight work you do want shipped: the push can't happen until you edit the rule, and an agent that's been refused may try to finish the task another way.</p>
+
+    <h2>2. Ask every time: an ask rule</h2>
+<pre>{
+  "permissions": {
+    "ask": ["Bash(git push *)"]
+  }
+}</pre>
+    <p>You get a prompt for each push, even if you've allowed git commands more broadly. Fine at the keyboard, and with Remote Control the prompt reaches your phone. The cost: the whole run waits at the prompt until you answer.</p>
+
+    <h2>3. Hold it for later: a PreToolUse hook</h2>
+    <p>A hook can refuse the command <em>for now</em>, tell the agent it's queued, and let it carry on. Two ways to get that:</p>
+    <ul>
+      <li><strong>Write it yourself.</strong> Our <a href="claude-code-overnight.html">overnight guide</a> has a short, tested hook that holds <code>git push</code> and logs it. In the morning you run what you approve yourself.</li>
+      <li><strong>Use the free plugin.</strong> <a href="./">Agent Mission Control</a> holds <code>git push</code>, <code>npm publish</code>, <code>rm -rf</code> and more by default, as a1, a2. <code>/mc approve a1</code> runs exactly that command, once, and you can <a href="approve-remotely.html">send it remotely</a> over Remote Control.</li>
+    </ul>
+<pre><span class="c"># in Claude Code, one line at a time</span>
+/plugin marketplace add long-run-labs/agent-mission-control
+/plugin install agent-mission-control@long-run-labs
+/mc goal Ship the CSV export --done-when tests pass and a PR is open</pre>
+
+    <h2>Every pattern has gaps</h2>
+    <p>Rules and hooks match the command's text, so a push written another way can slip past. The docs' own example: <code>Bash(git push *)</code> matches <code>git push origin main</code> but not <code>git -C . push origin main</code> or <code>git 'push' origin main</code>. The plugin's patterns have the same limit; a pattern like <code>git*push</code> catches more variants, and holds a few harmless commands too.</p>
+    <p>So add a backstop that doesn't live on the agent's machine:</p>
+    <ul>
+      <li><strong>Protect the branch on the server.</strong> On GitHub, a ruleset on <code>main</code> that requires a pull request, with an empty bypass list, means no push lands there directly. With a classic branch protection rule, also turn on <em>Do not allow bypassing the above settings</em>: by default, admins can bypass it, and on a personal repo your own token is an admin's.</li>
+      <li><strong>Keep admin credentials off the agent's machine.</strong> A token that can change repo settings can also remove the protection. Give the agent a fine-grained token without the Administration permission, and its own branch, if your setup allows it.</li>
+    </ul>
+    <p>Then the local rule is a seatbelt, and the server rule is the backstop.</p>
+
+    <section class="cta" aria-labelledby="cta-h">
+      <h2 id="cta-h">Hold it, don't just refuse it</h2>
+      <p>Agent Mission Control is free and MIT: holds, hard budgets and a finish line for long runs.</p>
+      <a class="btn" href="./" data-track="guide-push-cta">See Agent Mission Control</a>
+    </section>
+  </main>
+
+  <footer>
+    <span>© 2026 Long Run Labs · Not affiliated with Anthropic.</span>
+    <span><a href="./">Home</a><a href="approve-remotely.html">Approve remotely</a><a href="privacy.html">Privacy</a></span>
+  </footer>
+</div>
+<script>
+document.addEventListener("click", (e) => {
+  const a = e.target.closest("a[data-track]");
+  if (a && window.umami) window.umami.track(a.dataset.track);
+});
+</script>
+</body>
+</html>
