@@ -43,7 +43,7 @@ footer { border-top: 1px solid var(--rule); margin-top: 48px; padding-block: 24p
   <nav><a class="brand" href="./"><img src="favicon.svg" alt="" width="24" height="24">Long Run Labs</a></nav>
 
   <h1>Privacy</h1>
-  <p class="muted">Last updated October 28, 2026. This covers Agent Mission Control (the free plugin and the paid kit) and this website.</p>
+  <p class="muted">Last updated October 28, 2026 (kit 1.2). This covers Agent Mission Control (the free plugin and the paid kit) and this website.</p>
 
   <h2>The free plugin</h2>
   <ul>
@@ -57,7 +57,9 @@ footer { border-top: 1px solid var(--rule); margin-top: 48px; padding-block: 24p
   <ul>
     <li>Everything above, plus a local console that listens on <code>127.0.0.1</code> only and needs a private link to open.</li>
     <li>Desktop notifications are shown by your operating system and don't leave your machine.</li>
-    <li>Phone alerts are off until you set an ntfy topic. Then each alert sends a short text (the command waiting for approval, the agent's question, or a summary) to ntfy.sh, or to the ntfy server you choose. ntfy topics are readable by anyone who knows the name, so pick one that can't be guessed. <a href="https://ntfy.sh/docs/privacy/">ntfy's privacy policy</a> applies to what it receives.</li>
+    <li>Phone alerts are off until you set an ntfy topic. Then each alert sends one short line to ntfy.sh, or to the ntfy server you choose: ids, the matched pattern and counts, such as <em>a1 matches "git push". Approve with /mc approve a1, or deny with /mc deny a1.</em> or <em>Done: 7 commits. Waiting on a1.</em> Since version 1.2 it never includes the command itself, the agent's question or its summary, because those can contain secrets. ntfy topics are readable by anyone who knows the name, so pick one that can't be guessed. <a href="https://ntfy.sh/docs/privacy/">ntfy's privacy policy</a> applies to what it receives.</li>
+    <li>If neither desktop nor phone alerts are on, the plugin asks Claude Code to send one notification through its own PushNotification tool when a command is held, naming the pattern and the id, not the command. Claude Code delivers it, not us.</li>
+    <li>The morning report (since 1.2) is a file in your project's <code>.mission/</code> folder. It's written on your machine and never sent anywhere. It includes full command text, so don't share it.</li>
   </ul>
 
   <h2>Buying the kit</h2>

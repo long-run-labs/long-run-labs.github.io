@@ -85,7 +85,7 @@ footer a { color: var(--muted); text-decoration: none; margin-left: 16px; }
     <p class="lede">Refuse it, ask every time, or hold it for later. What each one does in manual, auto and skip-permissions mode, and a backstop that lives on the server.</p>
     <p class="meta">Checked against Claude Code's permission and hooks docs on 2026-10-28.</p>
 
-    <div class="tldr"><p><strong>Short version:</strong> a <strong>deny rule</strong> refuses <code>git push</code> in every mode, skip-permissions included. If you want the push to happen later, once you've looked, <strong>hold</strong> it with a <code>PreToolUse</code> hook instead, so the run keeps going. Either way, <strong>protect your main branch on the server</strong>, and make sure the credentials on the agent's machine can't change repo settings.</p></div>
+    <div class="tldr"><p><strong>Short version:</strong> a <strong>deny rule</strong> refuses <code>git push</code> in every mode, skip-permissions included. If you want the push to happen later, once you've looked, <strong>hold</strong> it with a <code>PreToolUse</code> hook instead: the push is queued with its exact command, and approving it later is one line. Either way, <strong>protect your main branch on the server</strong>, and make sure the credentials on the agent's machine can't change repo settings.</p></div>
 
     <h2>What happens to <code>git push</code> in each mode</h2>
     <div class="tablebox"><table class="stack">
@@ -106,7 +106,7 @@ footer a { color: var(--muted); text-decoration: none; margin-left: 16px; }
     "deny": ["Bash(git push *)"]
   }
 }</pre>
-    <p>Deny rules are checked first, before ask and allow rules, and an allow rule can't carve an exception out of one. The agent is told the command was refused. Good for "never, in this project". Not so good for overnight work you do want shipped: the push can't happen until you edit the rule, and an agent that's been refused may try to finish the task another way.</p>
+    <p>Deny rules are checked first, before ask and allow rules, and an allow rule can't carve an exception out of one. The agent is told the command was refused. Good for "never, in this project". Not so good for overnight work you do want shipped: the push can't happen until you edit the rule, and in <a href="field-report-1.html">our tests</a> some agents offered to push "another way" if you'd let them.</p>
 
     <h2>2. Ask every time: an ask rule</h2>
 <pre>{
