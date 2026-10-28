@@ -4,135 +4,229 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Agent Mission Control for Claude Code · Long Run Labs</title>
-<meta name="description" content="Steer long Claude Code runs from a local console: a goal with a finish line, budgets that stop it, GO/NO-GO approvals for risky commands, notes between tool calls, and phone alerts.">
+<meta name="description" content="A Claude Code plugin for long runs: risky commands wait for your GO, budgets actually stop the run, and you steer it from the chat with /mc. Free and MIT; the $15 kit adds a live console and phone alerts.">
+<link rel="canonical" href="https://long-run-labs.github.io/">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#0F1216" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#F4F5F2" media="(prefers-color-scheme: light)">
 <meta property="og:type" content="website">
+<meta property="og:site_name" content="Long Run Labs">
 <meta property="og:url" content="https://long-run-labs.github.io/">
 <meta property="og:title" content="Agent Mission Control for Claude Code">
 <meta property="og:description" content="Let it run overnight. Keep the GO button.">
-<meta property="og:image" content="https://long-run-labs.github.io/console.png">
+<meta property="og:image" content="https://long-run-labs.github.io/mc-demo.png">
+<meta property="og:image:width" content="2400">
+<meta property="og:image:height" content="1350">
+<meta property="og:image:alt" content="A real Claude Code session: a git push waits for /mc approve, then runs.">
 <meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Agent Mission Control",
+  "applicationCategory": "DeveloperApplication",
+  "operatingSystem": "macOS",
+  "description": "A Claude Code plugin that holds risky commands for your approval, enforces budgets and lets you steer long runs from the chat.",
+  "url": "https://long-run-labs.github.io/",
+  "softwareHelp": "https://github.com/long-run-labs/agent-mission-control/issues",
+  "publisher": { "@type": "Organization", "name": "Long Run Labs", "url": "https://long-run-labs.github.io/" },
+  "offers": [
+    { "@type": "Offer", "name": "Free plugin", "price": "0", "priceCurrency": "USD" },
+    { "@type": "Offer", "name": "Kit: console and alerts", "price": "15", "priceCurrency": "USD", "url": "https://buy.polar.sh/polar_cl_XzIYl3hBPBQKZT8p4Sn31PRBKXB7LYpEE45zi3KltXp" }
+  ]
+}
+</script>
+<!-- Cookieless analytics (Umami): see privacy.html -->
+<script defer src="https://cloud.umami.is/script.js" data-website-id="5f7073ba-6949-42cc-957e-8370b017b8b6" data-domains="long-run-labs.github.io" data-do-not-track="true" data-exclude-hash="true"></script>
 <style>
-/* Console vernacular: mission clock, GO / NO-GO, HOLD. One dark-first page that also reads in light. */
+/* Console vernacular: mission clock, GO / NO-GO, HOLD. Dark first; reads the same in light. */
 :root {
-  --bg: #0F1216; --surface: #161A20; --ink: #E5E8EB; --muted: #96A0AB; --rule: #28303A;
+  --bg: #0F1216; --surface: #161A20; --sunk: #12161B; --ink: #E5E8EB; --muted: #96A0AB; --rule: #28303A;
   --signal: #84A2FF; --go: #4CC28A; --nogo: #F2706A; --hold: #F0A43A; --on-go: #08130D;
   --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
   --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   color-scheme: dark;
 }
 @media (prefers-color-scheme: light) {
-  :root { --bg: #F4F5F2; --surface: #FFFFFF; --ink: #1B1F24; --muted: #5C6570; --rule: #D9DEE2;
+  :root { --bg: #F4F5F2; --surface: #FFFFFF; --sunk: #ECEEEA; --ink: #1B1F24; --muted: #5C6570; --rule: #D9DEE2;
     --signal: #2C56C9; --go: #1E7A4C; --nogo: #B22E2E; --hold: #A86400; --on-go: #FFFFFF; color-scheme: light; }
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; }
-body { background: var(--bg); color: var(--ink); font: 16px/1.6 var(--sans); }
+html { scroll-behavior: smooth; scroll-padding-top: 16px; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body { background: var(--bg); color: var(--ink); font: 16px/1.6 var(--sans); -webkit-font-smoothing: antialiased; }
 a { color: var(--signal); }
-.wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
+img, video { max-width: 100%; }
+.wrap { max-width: 1120px; margin: 0 auto; padding: 0 20px; }
+.skip { position: absolute; left: -999px; top: 8px; background: var(--surface); color: var(--ink); padding: 8px 12px; border-radius: 6px; z-index: 10; }
+.skip:focus { left: 12px; }
 .mono { font-family: var(--mono); }
 .label { font-size: 12px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
-nav { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding-block: 18px; flex-wrap: wrap; }
-.brand { font-weight: 800; letter-spacing: .02em; text-decoration: none; color: var(--ink); }
-.brand span { color: var(--muted); font-weight: 500; }
-nav .links { display: flex; gap: 18px; font-size: 15px; flex-wrap: wrap; }
-nav .links a { color: var(--muted); text-decoration: none; }
-nav .links a:hover { color: var(--ink); }
+code { font-family: var(--mono); font-size: .92em; }
 
-.hero { padding-block: 56px 32px; display: grid; gap: 22px; max-width: 760px; }
-.hero h1 { font-size: clamp(36px, 6vw, 60px); line-height: 1.05; letter-spacing: -.02em; margin: 0; text-wrap: balance; }
+/* Header */
+.top { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding-block: 18px; flex-wrap: wrap; }
+.brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 800; letter-spacing: .02em; text-decoration: none; color: var(--ink); }
+.brand img { width: 28px; height: 28px; border-radius: 7px; }
+.brand span { color: var(--muted); font-weight: 500; }
+.top nav { display: flex; gap: 18px; font-size: 15px; flex-wrap: wrap; }
+.top nav a { color: var(--muted); text-decoration: none; }
+.top nav a:hover { color: var(--ink); }
+
+/* Hero */
+.hero { padding-block: 48px 28px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; max-width: 800px; }
+.hero h1 { font-size: clamp(38px, 6.4vw, 64px); line-height: 1.04; letter-spacing: -.025em; margin: 0; text-wrap: balance; }
 .hero h1 em { font-style: normal; color: var(--go); }
-.hero p { font-size: 19px; color: var(--muted); margin: 0; max-width: 62ch; }
+.hero .sub { font-size: 19px; color: var(--muted); margin: 0; max-width: 64ch; }
+.hero .sub strong { color: var(--ink); font-weight: 600; }
 .cta { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
-.btn { display: inline-block; padding: 13px 22px; border-radius: 8px; font-weight: 700; text-decoration: none; border: 1px solid var(--rule); color: var(--ink); }
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; border-radius: 8px; font-weight: 700; text-decoration: none; border: 1px solid var(--rule); color: var(--ink); background: transparent; font: inherit; font-weight: 700; cursor: pointer; }
 .btn.go { background: var(--go); border-color: var(--go); color: var(--on-go); letter-spacing: .02em; }
 .btn:hover { filter: brightness(1.08); }
-.small { font-size: 14px; color: var(--muted); }
-.shot { margin-block: 12px 64px; border: 1px solid var(--rule); border-radius: 12px; overflow: hidden; box-shadow: 0 30px 80px -40px rgba(0,0,0,.6); }
-.shot img { display: block; width: 100%; height: auto; }
+.trust { display: flex; flex-wrap: wrap; gap: 8px 20px; margin: 4px 0 0; padding: 0; list-style: none; color: var(--muted); font-size: 14px; }
+.trust li::before { content: "✓"; color: var(--go); font-weight: 800; margin-right: 6px; }
 
-section { padding-block: 48px; border-top: 1px solid var(--rule); }
-section h2 { font-size: clamp(26px, 3.5vw, 34px); line-height: 1.15; margin: 8px 0 18px; letter-spacing: -.01em; text-wrap: balance; }
+/* Code with a copy button */
+.code { position: relative; min-width: 0; }
+.code pre { margin: 0; background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 14px 92px 14px 16px; overflow-x: auto; font: 14px/1.65 var(--mono); }
+.copy { position: absolute; top: 9px; right: 9px; padding: 5px 11px; border-radius: 6px; border: 1px solid var(--rule); background: var(--bg); color: var(--muted); font: 600 12px var(--sans); cursor: pointer; }
+.copy:hover { color: var(--ink); }
+.copy[data-done] { color: var(--go); border-color: var(--go); }
+.cap { margin: 0 0 6px; font-size: 13px; color: var(--muted); }
+
+.shot { margin: 8px 0 0; border: 1px solid var(--rule); border-radius: 12px; overflow: hidden; box-shadow: 0 30px 80px -40px rgba(0,0,0,.65); background: #0B0E11; }
+.shot img, .shot video { display: block; width: 100%; height: auto; }
+figure { margin: 0; }
+.session img { display: block; width: 100%; height: auto; border-radius: 14px; background: #0B0E11; }
+figcaption { font-size: 13px; color: var(--muted); margin-top: 10px; }
+
+/* Sections */
+section { padding-block: 56px; border-top: 1px solid var(--rule); }
+section > h2, .head h2 { font-size: clamp(26px, 3.6vw, 36px); line-height: 1.15; margin: 8px 0 14px; letter-spacing: -.015em; text-wrap: balance; }
+.lead { color: var(--muted); font-size: 17px; margin: 0 0 22px; max-width: 70ch; }
 .two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .card { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 18px 20px; }
-.card h3 { margin: 0 0 6px; font-size: 17px; }
+.card h3 { margin: 6px 0 6px; font-size: 17px; }
 .card p { margin: 0; color: var(--muted); font-size: 15px; }
 .fail { border-left: 4px solid var(--nogo); }
-.grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .tag { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .08em; }
-.tag.go { color: var(--go); } .tag.hold { color: var(--hold); } .tag.sig { color: var(--signal); }
+.tag.go { color: var(--go); } .tag.hold { color: var(--hold); } .tag.sig { color: var(--signal); } .tag.nogo { color: var(--nogo); }
+
 .tablebox { overflow-x: auto; border: 1px solid var(--rule); border-radius: 10px; background: var(--surface); }
 table { border-collapse: collapse; width: 100%; font-size: 15px; }
 th, td { text-align: left; padding: 11px 14px; border-top: 1px solid var(--rule); vertical-align: top; }
 thead th { border-top: 0; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
-td code, li code, p code { font-family: var(--mono); font-size: .92em; }
+tbody th { font-weight: 600; }
 .yes { color: var(--go); font-weight: 700; } .no { color: var(--muted); }
-pre { margin: 0; background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 16px 18px; overflow-x: auto; font: 14px/1.6 var(--mono); }
+
+.kit { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); gap: 28px; align-items: center; }
+.kit ul { margin: 0 0 20px; padding-left: 20px; }
+.kit li { margin-bottom: 8px; }
+.kit li strong { font-weight: 650; }
+
+.steps { display: grid; grid-template-columns: minmax(0, 1fr); gap: 22px; }
 .price { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 16px; align-items: stretch; }
-.price .big { font-size: 48px; font-weight: 800; letter-spacing: -.02em; }
-.price ul { margin: 12px 0 18px; padding-left: 20px; color: var(--muted); }
+.price .big { font-size: 52px; font-weight: 800; letter-spacing: -.02em; line-height: 1; }
+.price ul { margin: 14px 0 20px; padding-left: 20px; color: var(--muted); }
+.price .card { display: flex; flex-direction: column; }
+.price .card .btn { align-self: flex-start; margin-top: auto; }
+
 details { border-top: 1px solid var(--rule); padding-block: 14px; }
 details:first-of-type { border-top: 0; }
 summary { cursor: pointer; font-weight: 650; }
-details p { color: var(--muted); margin: 8px 0 0; max-width: 70ch; }
+details p { color: var(--muted); margin: 8px 0 0; max-width: 72ch; }
+.guide { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+.guide p { margin: 0; color: var(--muted); max-width: 60ch; }
+
 footer { border-top: 1px solid var(--rule); padding-block: 28px 48px; color: var(--muted); font-size: 14px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+footer nav { display: flex; gap: 16px; flex-wrap: wrap; }
 :focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
-@media (max-width: 760px) {
-  .two, .grid3, .price { grid-template-columns: minmax(0, 1fr); }
-  .hero { padding-block: 32px 20px; }
-  .hero p { font-size: 17px; }
+@media (max-width: 860px) {
+  .two, .grid3, .price, .kit { grid-template-columns: minmax(0, 1fr); }
+  .hero { padding-block: 28px 16px; }
+  .hero .sub { font-size: 17px; }
+  section { padding-block: 44px; }
+  .top nav { gap: 14px; font-size: 14px; }
+  .copy { position: static; display: block; margin: 0 0 6px auto; }
+  .code pre { padding-right: 16px; }
 }
 </style>
 </head>
 <body>
+<a class="skip" href="#main">Skip to content</a>
 <div class="wrap">
-  <nav>
-    <a class="brand" href="#">Long Run Labs <span>/ Agent Mission Control</span></a>
-    <div class="links"><a href="#how">How it works</a><a href="#free">Free core</a><a href="#price">Pricing</a><a href="#faq">FAQ</a></div>
-  </nav>
-
-  <header class="hero">
-    <span class="label">For Claude Code</span>
-    <h1>Let it run overnight. <em>Keep the GO button.</em></h1>
-    <p>Agent Mission Control keeps long Claude Code runs on track: a goal with a "done when" it keeps working toward, budgets that actually stop it, GO / NO-GO approvals for risky commands, and your notes delivered between tool calls. Your phone buzzes when it needs you; you answer at your machine.</p>
-    <div class="cta">
-      <a class="btn go" href="https://buy.polar.sh/polar_cl_XzIYl3hBPBQKZT8p4Sn31PRBKXB7LYpEE45zi3KltXp">Get the kit · $15</a>
-      <a class="btn" href="https://github.com/long-run-labs/agent-mission-control">Try the free core</a>
-    </div>
-    <span class="small">One-time purchase. Runs on your machine. No account, no service, no dependencies. Going to bed? Give it the night: <code>mc set maxMinutes 600</code> and <code>mc set maxToolCalls 2000</code>.</span>
+  <header class="top">
+    <a class="brand" href="./"><img src="favicon.svg" alt="" width="28" height="28">Long Run Labs <span>/ Agent Mission Control</span></a>
+    <nav aria-label="Main">
+      <a href="#features">Features</a><a href="#kit">The kit</a><a href="#install">Install</a><a href="#price">Pricing</a><a href="#faq">FAQ</a><a href="claude-code-overnight.html" data-track="nav-guide">Guide</a>
+    </nav>
   </header>
 
-  <div class="shot"><img src="console.png" alt="The Mission Control console: a goal, a mission clock, budget gauges, a GO / NO-GO request for git push, a question from the agent with answer buttons, and a box to send the agent a note." width="2560" height="1440"></div>
+  <main id="main">
+  <div class="hero">
+    <span class="label">Claude Code plugin · free and MIT</span>
+    <h1>Let it run overnight. <em>Keep the GO button.</em></h1>
+    <p class="sub">Agent Mission Control <strong>holds risky commands until you approve them</strong>, <strong>caps what a long run can spend</strong>, and lets you <strong>steer it from the chat</strong> with <code>/mc</code>. The plugin runs on your machine and sends nothing anywhere.</p>
+    <div>
+      <p class="cap">Install it from the Claude Code prompt:</p>
+      <div class="code">
+<pre id="install-hero">/plugin marketplace add long-run-labs/agent-mission-control
+/plugin install agent-mission-control@long-run-labs</pre>
+        <button class="copy" type="button" data-copy="install-hero" data-umami-event="copy-install" data-umami-event-where="hero">Copy</button>
+      </div>
+    </div>
+    <div class="cta">
+      <a class="btn go" href="https://buy.polar.sh/polar_cl_XzIYl3hBPBQKZT8p4Sn31PRBKXB7LYpEE45zi3KltXp" data-track="kit-click" data-track-where="hero">Get the kit · $15</a>
+      <a class="btn" href="https://github.com/long-run-labs/agent-mission-control" data-track="github-click" data-track-where="hero">View on GitHub</a>
+    </div>
+    <ul class="trust" aria-label="At a glance">
+      <li>Free plugin, MIT licensed</li><li>Zero dependencies</li><li>The plugin sends nothing</li><li>51 end-to-end tests</li><li>Independent review before each release</li>
+    </ul>
+  </div>
 
-  <section>
+  <figure class="session">
+    <a href="img/mc-session.png" title="Open full size"><picture>
+      <source type="image/webp" srcset="img/mc-session-1160.webp 1160w, img/mc-session-2320.webp 2320w" sizes="(max-width: 1160px) 100vw, 1080px">
+      <img src="img/mc-session.png" alt="A real Claude Code session with the plugin. /mc goal sets the goal; /mc status shows a git push waiting for approval as a1; after /mc approve a1 the push runs and the mission completes." width="2320" height="880">
+    </picture></a>
+    <figcaption>From a real session: the agent's <code>git push</code> waited as a1 until <code>/mc approve a1</code>, then ran exactly as approved.</figcaption>
+  </figure>
+
+  <section aria-labelledby="problem">
     <span class="label">The problem</span>
-    <h2>Long runs fail in two ways</h2>
+    <h2 id="problem">Long runs fail in two ways</h2>
     <div class="two">
       <div class="card fail"><h3>It stops too early</h3><p>A quiet stop halfway through a migration while you were asleep, with nobody to tell it to keep going.</p></div>
-      <div class="card fail"><h3>It doesn't stop when it should</h3><p>A force-push, a publish or a <code>rm -rf</code> it should have asked about, or three hours burned on a dead end.</p></div>
+      <div class="card fail"><h3>It doesn't stop when it should</h3><p>A force-push, a publish or an <code>rm -rf</code> it should have asked about, or three hours burned on a dead end.</p></div>
     </div>
   </section>
 
-  <section id="how">
-    <span class="label">What you get</span>
-    <h2>A human in the loop, without a human at the keyboard</h2>
+  <section id="features" aria-labelledby="features-h">
+    <span class="label">What it does</span>
+    <h2 id="features-h">A human in the loop, without a human at the keyboard</h2>
     <div class="grid3">
-      <div class="card"><span class="tag go">GOAL</span><h3>A finish line</h3><p>Set the goal and a "done when". The Stop hook keeps the run going until the agent marks it done (it's told to only when your condition holds, and you see its summary), you put it on hold, or a budget runs out.</p></div>
-      <div class="card"><span class="tag hold">BUDGET</span><h3>Limits with teeth</h3><p>Cap tool calls, minutes and automatic continues. When one runs out, tools are refused and the agent wraps up.</p></div>
-      <div class="card"><span class="tag go">GO / NO-GO</span><h3>Approvals</h3><p><code>git push</code>, <code>npm publish</code> or any pattern you add waits for your click. The agent works on other things meanwhile.</p></div>
-      <div class="card"><span class="tag sig">STEER</span><h3>Notes mid-run</h3><p>Answers and notes reach a running agent after its next tool call. No restart, no lost context.</p></div>
-      <div class="card"><span class="tag sig">ALERTS</span><h3>Phone and desktop</h3><p>A push through the free ntfy app when it needs a GO, is blocked, stops or finishes. You answer at your machine.</p></div>
-      <div class="card"><span class="tag hold">LOCAL</span><h3>Yours, on your machine</h3><p>The console listens on 127.0.0.1 behind a private link. State is one JSON file. Zero dependencies.</p></div>
+      <div class="card"><span class="tag hold">HOLD</span><h3>Risky commands wait for your GO</h3><p><code>git push</code>, <code>npm publish</code>, <code>rm -rf</code> or your own patterns are held as a1, a2… The agent keeps working on other things. <code>/mc approve a1</code> runs exactly that command, once.</p></div>
+      <div class="card"><span class="tag hold">BUDGET</span><h3>Budgets that actually stop it</h3><p>Cap tool calls, minutes and automatic continues. When one runs out, every tool is refused and the agent is told to wrap up.</p></div>
+      <div class="card"><span class="tag sig">STEER</span><h3>Steer from the chat</h3><p><code>/mc say use the staging DB</code>, <code>/mc answer q1 Postgres</code>, <code>/mc status</code>. No restart, no lost context.</p></div>
+      <div class="card"><span class="tag go">GOAL</span><h3>A finish line it can't loop on</h3><p>Set a goal and a "done when". It keeps going until the agent marks it done, and lets the run stop when it's waiting on you, out of budget, or stuck.</p></div>
+      <div class="card"><span class="tag nogo">LOCKED</span><h3>It doesn't approve itself</h3><p>Your commands are refused when the agent tries them, through <code>mc</code> or by sending <code>/mc</code> another way, and starting a nested <code>claude</code> waits for your GO. If the state can't be read, tools are refused rather than the checks switching off.</p></div>
+      <div class="card"><span class="tag go">LOCAL</span><h3>The plugin sends nothing</h3><p>One JSON file per project, git-ignored. No network connections, no telemetry, no account.</p></div>
     </div>
   </section>
 
-  <section>
+  <section aria-labelledby="how">
     <span class="label">Under the hood</span>
-    <h2>One hook on six Claude Code events, and a small CLI</h2>
+    <h2 id="how">One hook on seven Claude Code events</h2>
+    <p class="lead">No daemon, no service: Claude Code calls one small Node.js script at these points, and it reads and writes one file.</p>
     <div class="tablebox">
       <table>
         <thead><tr><th scope="col">Event</th><th scope="col">What Mission Control does</th></tr></thead>
         <tbody>
-          <tr><td><code>SessionStart</code></td><td>Injects the mission brief: goal, budget, open questions, recent log, protocol</td></tr>
+          <tr><td><code>SessionStart</code></td><td>Gives the agent the mission brief: goal, budget, open questions, recent log, how to report</td></tr>
+          <tr><td><code>UserPromptExpansion</code></td><td>Applies the <code>/mc</code> commands you type</td></tr>
           <tr><td><code>UserPromptSubmit</code></td><td>Passes along anything new from you</td></tr>
           <tr><td><code>PreToolUse</code></td><td>Refuses tools on hold or out of budget; holds commands that need a GO; keeps the agent out of its own state</td></tr>
           <tr><td><code>PostToolUse</code> / <code>…Failure</code></td><td>Counts the call; delivers your notes, answers and decisions</td></tr>
@@ -140,71 +234,148 @@ footer { border-top: 1px solid var(--rule); padding-block: 28px 48px; color: var
         </tbody>
       </table>
     </div>
-    <p class="small" style="margin-top:12px">If the state file can't be read, tools are refused with the reason instead of the checks switching off.</p>
   </section>
 
-  <section id="free">
-    <span class="label">Free core vs. the kit</span>
-    <h2>Start free. Upgrade when you want the console.</h2>
-    <div class="tablebox">
+  <section id="kit" aria-labelledby="kit-h">
+    <span class="label">The kit · $15</span>
+    <div class="kit">
+      <figure>
+        <div class="shot"><video id="kitVideo" controls muted loop playsinline preload="metadata" poster="img/console-1280.webp" width="1280" height="720" aria-label="The Mission Control console. The agent's git push waits for GO, a question gets an answer, and HOLD pauses every tool call until resume.">
+          <source src="img/console-demo.mp4" type="video/mp4">
+        </video></div>
+        <figcaption>The console, running the sample mission that ships with the kit.</figcaption>
+      </figure>
+      <div>
+        <h2 id="kit-h">For when you're not at the terminal</h2>
+        <ul>
+          <li><strong>A live console</strong> at 127.0.0.1: GO / NO-GO buttons, one-click answers, budget gauges, a mission clock and a box to send notes.</li>
+          <li><strong>Phone and desktop alerts</strong> when the agent needs a GO, is blocked, stops or finishes. Phone alerts go through the free ntfy app, and you answer at your machine.</li>
+          <li><strong>A sample mission</strong>, so you can try the console before pointing it at real work.</li>
+        </ul>
+        <a class="btn go" href="https://buy.polar.sh/polar_cl_XzIYl3hBPBQKZT8p4Sn31PRBKXB7LYpEE45zi3KltXp" data-track="kit-click" data-track-where="kit">Get the kit · $15</a>
+      </div>
+    </div>
+    <div class="tablebox" style="margin-top:28px">
       <table>
-        <thead><tr><th scope="col">Feature</th><th scope="col">Free core (MIT)</th><th scope="col">Full kit ($15)</th></tr></thead>
+        <thead><tr><th scope="col">Feature</th><th scope="col">Free plugin (MIT)</th><th scope="col">Kit ($15)</th></tr></thead>
         <tbody>
-          <tr><th scope="row">Goal and Stop control, budgets</th><td class="yes">Yes</td><td class="yes">Yes</td></tr>
-          <tr><th scope="row">GO / NO-GO approvals, questions, notes</th><td class="yes">Yes, from the terminal</td><td class="yes">Yes, one click</td></tr>
+          <tr><th scope="row">Goal, finish line and budgets</th><td class="yes">Yes</td><td class="yes">Yes</td></tr>
+          <tr><th scope="row">GO / NO-GO, questions and notes</th><td class="yes">Yes, with <code>/mc</code> in the chat</td><td class="yes">Yes, <code>/mc</code> or one click</td></tr>
           <tr><th scope="row">Live console with gauges and buttons</th><td class="no">No</td><td class="yes">Yes</td></tr>
           <tr><th scope="row">Phone (ntfy) and desktop alerts</th><td class="no">No</td><td class="yes">Yes</td></tr>
           <tr><th scope="row">Sample mission to try it first</th><td class="no">No</td><td class="yes">Yes</td></tr>
+          <tr><th scope="row">Install</th><td>Claude Code plugin</td><td>One command per project</td></tr>
         </tbody>
       </table>
     </div>
   </section>
 
-  <section>
+  <section id="install" aria-labelledby="install-h">
     <span class="label">Install</span>
-    <h2>Two minutes to install</h2>
-<pre>node install.mjs /path/to/your/project --goal "Ship the CSV export"
-cd /path/to/your/project
-node .mission/bin/mc.mjs set maxMinutes 600   # optional: give it the night…
-node .mission/bin/mc.mjs set maxToolCalls 2000 # …and enough tool calls for it
-node .mission/bin/mc.mjs ui                    # kit only: prints the console's private link
-
-# in a second terminal, same folder:
-claude                                         # give it the task; steer from the console</pre>
-    <p class="small" style="margin-top:12px">Needs Claude Code and Node 18.17+. Tested on macOS; Linux and Windows aren't tested yet.</p>
+    <h2 id="install-h">Running in a minute</h2>
+    <div class="steps">
+      <div>
+        <p class="cap">1. The free plugin, from the Claude Code prompt. It does nothing in a project until you give it a goal there.</p>
+        <div class="code">
+<pre id="install-plugin">/plugin marketplace add long-run-labs/agent-mission-control
+/plugin install agent-mission-control@long-run-labs</pre>
+        <button class="copy" type="button" data-copy="install-plugin" data-umami-event="copy-install" data-umami-event-where="install">Copy</button>
+      </div>
+      </div>
+      <div>
+        <p class="cap">2. In your project, give it a goal and, for a long run, the budget for it:</p>
+        <div class="code">
+<pre id="install-goal">/mc goal Ship the CSV export --done-when tests pass and a PR is open
+/mc set maxMinutes 600
+/mc set maxToolCalls 2000</pre>
+        <button class="copy" type="button" data-copy="install-goal" data-umami-event="copy-goal">Copy</button>
+      </div>
+      </div>
+      <div>
+        <p class="cap">The kit, from the folder you unzipped. In that project, the kit's copy takes over from the plugin.</p>
+        <div class="code">
+<pre id="install-kit">node install.mjs /path/to/your/project
+cd /path/to/your/project &amp;&amp; node .mission/cli/mc.mjs ui   # prints the console's private link</pre>
+        <button class="copy" type="button" data-copy="install-kit" data-umami-event="copy-kit-install">Copy</button>
+      </div>
+      </div>
+    </div>
+    <p class="lead" style="margin-top:18px">Needs Claude Code and Node.js 18.17 or newer on your <code>PATH</code>. Tested on macOS; Linux and Windows aren't tested yet.</p>
   </section>
 
-  <section id="price">
+  <section id="price" aria-labelledby="price-h">
     <span class="label">Pricing</span>
     <div class="price">
       <div>
-        <h2>One price, yours to keep</h2>
-        <p class="small">Use it on all your own projects, personal or commercial, and share it inside your team. Every purchase funds the free core.</p>
+        <h2 id="price-h">Free to start. $15 once for the console.</h2>
+        <p class="lead">The plugin is free and MIT licensed, for good. The kit is a one-time purchase: use it on all your own projects, personal or commercial, and share it inside your team. Every purchase funds the free plugin.</p>
+        <p class="lead">Payments are handled by <a href="https://polar.sh">Polar</a>, the merchant of record, which also takes care of sales tax and receipts.</p>
       </div>
       <div class="card">
-        <div class="big">$15</div>
-        <span class="small">one-time</span>
-        <ul><li>Console, phone and desktop alerts</li><li>Installer, hook, <code>mc</code> CLI, agent skill</li><li>End-to-end test suite and README</li><li>Updates to the 1.x line</li></ul>
-        <a class="btn go" href="https://buy.polar.sh/polar_cl_XzIYl3hBPBQKZT8p4Sn31PRBKXB7LYpEE45zi3KltXp">Get the kit</a>
+        <span class="label">The kit</span>
+        <div class="big" style="margin-top:8px">$15</div>
+        <span style="color:var(--muted);font-size:14px">one-time · instant download</span>
+        <ul><li>Live console, phone and desktop alerts</li><li>Installer, hook, <code>/mc</code> and the <code>mc</code> command line, agent skills</li><li>Sample mission, end-to-end tests and README</li><li>Updates to the 1.x line</li></ul>
+        <a class="btn go" href="https://buy.polar.sh/polar_cl_XzIYl3hBPBQKZT8p4Sn31PRBKXB7LYpEE45zi3KltXp" data-track="kit-click" data-track-where="pricing">Get the kit</a>
       </div>
     </div>
   </section>
 
-  <section id="faq">
+  <section id="faq" aria-labelledby="faq-h">
     <span class="label">FAQ</span>
-    <h2>Questions</h2>
-    <details><summary>Does it send my code or prompts anywhere?</summary><p>Mission Control itself runs entirely on your machine. The one exception is phone alerts, which are optional: each one carries the command waiting for approval, or the agent's question or summary, to ntfy.sh (topics are readable by anyone who guesses the name) or to your own ntfy server.</p></details>
-    <details><summary>Can I approve from my phone?</summary><p>Not yet. Your phone gets the alert; you approve or answer at your machine, in the console or with <code>mc</code>. The console is local-only on purpose.</p></details>
-    <details><summary>What happens when the agent stops?</summary><p>Once it has stopped (a blocking question, a budget, or on hold), nothing restarts it by itself. Answer in the console, then type <code>continue</code> in its session, or run <code>claude -p --continue</code> for headless runs.</p></details>
-    <details><summary>Can the agent approve its own commands?</summary><p>No. Human commands like approve, resume and reset-budget are refused when the agent tries them, and so is anything chained onto <code>mc</code> or touching its state folder. Approval patterns are a seatbelt, not a sandbox; Claude Code's own permissions still apply.</p></details>
-    <details><summary>Does it work with my team's settings?</summary><p>By default it installs into your own <code>.claude/settings.local.json</code> and git-ignores its state. Use <code>--shared</code> to put the hook in the committed settings for the whole team.</p></details>
-    <details><summary>How do I get help?</summary><p>Open an issue on the <a href="https://github.com/long-run-labs/agent-mission-control/issues">GitHub repo</a>.</p></details>
+    <h2 id="faq-h">Questions</h2>
+    <details><summary>Why not just Claude Code's /goal?</summary><p><code>/goal</code> keeps a run going until a condition holds, and that's the part of long runs it covers. Mission Control has its own finish line, and adds what <code>/goal</code> doesn't: commands that wait for your GO while the agent keeps working, budgets that refuse tools once they're spent, and notes and answers you send mid-run.</p></details>
+    <details><summary>Does it send my code or prompts anywhere?</summary><p>No. The free plugin makes no network connections at all. The kit runs on your machine too. Its one exception is phone alerts, which are optional: each one carries the command waiting for approval, or the agent's question or summary, to ntfy.sh (topics are readable by anyone who guesses the name) or to your own ntfy server. Details are in the <a href="privacy.html">privacy policy</a>.</p></details>
+    <details><summary>Can the agent approve its own commands?</summary><p>Not by any ordinary route. Your commands, like approve, resume and reset-budget, are refused when the agent tries them, and so is anything chained onto <code>mc</code> or touching its state folder. A <code>/mc</code> only counts when a person types it in a session they're attending: one sent through a nested <code>claude -p</code>, a scheduled prompt or a script is refused, and starting any nested <code>claude</code> waits for your GO. Like the approval patterns, which match command text, this is a seatbelt, not a sandbox: an agent that deliberately disguises a command can get past it. The skill tells it not to, and Claude Code's own permissions still apply.</p></details>
+    <details><summary>What happens when the agent stops?</summary><p>When it's waiting on you (a held command or a blocking question), type <code>/mc approve a1</code> or <code>/mc answer q1 …</code> in its session and it carries on. If you answer in the console or a terminal instead, type <code>continue</code> in its session afterwards, or run <code>claude -p --continue</code> for headless runs.</p></details>
+    <details><summary>Can I steer while it's working?</summary><p>Yes, with one catch. A <code>/mc</code> you type while the agent is working waits until the run stops, so press Esc first to send it right away. Esc stops the current step, and the agent picks up again after your <code>/mc</code>. Or run <code>mc say …</code> in a terminal: the note reaches the agent at its next tool call, without interrupting it.</p></details>
+    <details><summary>Can I approve from my phone?</summary><p>Not yet. With the kit, your phone gets the alert, and you approve at your machine, with <code>/mc</code> in the chat or in the console. The console is local-only on purpose.</p></details>
+    <details><summary>Does it work with my team's settings?</summary><p>The plugin is installed per person and keeps each project's state in a git-ignored <code>.mission/</code> folder. The kit's installer writes to your own <code>.claude/settings.local.json</code> by default; use <code>--shared</code> to put the hook in the committed settings for the whole team.</p></details>
+    <details><summary>Linux and Windows?</summary><p>It's plain Node.js with no dependencies, and the hook is written to work under Git Bash and PowerShell, but so far it's only been tested on macOS. If you try it elsewhere, an issue with what you saw helps a lot.</p></details>
+    <details><summary>How do I get help?</summary><p>Open an issue on the <a href="https://github.com/long-run-labs/agent-mission-control/issues">GitHub repo</a>. For anything about a purchase, open one titled "Purchase", with no personal details, and we'll reply there with a private way to reach us.</p></details>
   </section>
+
+  <section aria-labelledby="guide-h">
+    <div class="guide">
+      <div>
+        <span class="label">Guide</span>
+        <h2 id="guide-h" style="margin:8px 0 6px;font-size:24px">Rather wire it up yourself?</h2>
+        <p>Three small hooks that keep a run going without looping, and hold risky commands instead of asking an empty room. Tested, with the gotchas we hit.</p>
+      </div>
+      <a class="btn" href="claude-code-overnight.html" data-track="guide-click">Read the guide</a>
+    </div>
+  </section>
+  </main>
 
   <footer>
     <span>© 2026 Long Run Labs</span>
-    <span>Payments by Polar · Free core on <a href="https://github.com/long-run-labs/agent-mission-control">GitHub</a></span>
+    <nav aria-label="Footer">
+      <a href="https://github.com/long-run-labs/agent-mission-control">GitHub</a>
+      <a href="https://github.com/long-run-labs/agent-mission-control/issues">Support</a>
+      <a href="claude-code-overnight.html">Guide</a>
+      <a href="privacy.html">Privacy</a>
+    </nav>
   </footer>
 </div>
+<script>
+// Copy buttons: copy the <pre> they point at, then say so (for screen readers too).
+document.querySelectorAll("[data-copy]").forEach((b) => {
+  b.addEventListener("click", async () => {
+    const text = document.getElementById(b.dataset.copy).textContent.replace(/\s+#.*$/gm, "");
+    try { await navigator.clipboard.writeText(text); b.textContent = "Copied"; b.dataset.done = ""; }
+    catch { b.textContent = "Select and copy"; }
+    setTimeout(() => { b.textContent = "Copy"; delete b.dataset.done; }, 1800);
+  });
+  b.setAttribute("aria-live", "polite");
+});
+// Link clicks reach Umami (keepalive) without holding the click; its own link handler waits for the request.
+document.addEventListener("click", (e) => {
+  const a = e.target.closest("a[data-track]");
+  if (a && window.umami) window.umami.track(a.dataset.track, a.dataset.trackWhere ? { where: a.dataset.trackWhere } : undefined);
+});
+// The kit video plays on its own only for people who haven't asked for reduced motion.
+const kitVideo = document.getElementById("kitVideo");
+if (kitVideo && !matchMedia("(prefers-reduced-motion: reduce)").matches) kitVideo.play().catch(() => {});
+</script>
 </body>
 </html>

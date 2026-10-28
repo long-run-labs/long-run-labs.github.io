@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How to let Claude Code run overnight · Long Run Labs</title>
+<meta name="description" content="Three small Claude Code hooks that keep a long run going until it's done, stop it from looping, and hold git push or rm -rf for you instead of asking an empty room. Tested scripts included.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://long-run-labs.github.io/claude-code-overnight.html">
+<meta property="og:title" content="How to let Claude Code run overnight (and keep the GO button)">
+<meta property="og:description" content="Stop hooks that don't loop, held commands instead of unanswered prompts, and what we learned testing them.">
+<meta property="og:image" content="https://long-run-labs.github.io/mc-demo.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="canonical" href="https://long-run-labs.github.io/claude-code-overnight.html">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<!-- Cookieless analytics (Umami): see privacy.html -->
+<script defer src="https://cloud.umami.is/script.js" data-website-id="5f7073ba-6949-42cc-957e-8370b017b8b6" data-domains="long-run-labs.github.io" data-do-not-track="true" data-exclude-hash="true"></script>
+<style>
+:root {
+  --bg: #0F1216; --surface: #161A20; --ink: #E5E8EB; --muted: #96A0AB; --rule: #28303A; --signal: #84A2FF; --go: #4CC28A; --hold: #F0A43A;
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root { --bg: #F4F5F2; --surface: #FFFFFF; --ink: #1B1F24; --muted: #5C6570; --rule: #D9DEE2; --signal: #2C56C9; --go: #1E7A4C; --hold: #A86400; color-scheme: light; }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font: 17px/1.7 var(--sans); }
+a { color: var(--signal); }
+.wrap { max-width: 760px; margin: 0 auto; padding: 0 20px; }
+nav { padding-block: 18px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.brand { display: inline-flex; align-items: center; gap: 9px; font-weight: 800; letter-spacing: .02em; text-decoration: none; color: var(--ink); }
+.brand img { border-radius: 6px; }
+nav .links a { color: var(--muted); text-decoration: none; font-size: 15px; margin-left: 16px; }
+.label { font-size: 12px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+h1 { font-size: clamp(30px, 5vw, 44px); line-height: 1.1; letter-spacing: -.02em; margin: 24px 0 12px; text-wrap: balance; }
+.lede { font-size: 19px; color: var(--muted); margin: 0 0 8px; }
+h2 { font-size: 24px; line-height: 1.25; margin: 44px 0 10px; letter-spacing: -.01em; }
+h3 { font-size: 18px; margin: 28px 0 6px; }
+p, li { max-width: 68ch; }
+code { font-family: var(--mono); font-size: .9em; }
+pre { margin: 12px 0 18px; background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 14px 16px; overflow-x: auto; font: 13.5px/1.6 var(--mono); }
+.note { border-left: 3px solid var(--hold); background: var(--surface); padding: 10px 14px; border-radius: 0 8px 8px 0; margin: 16px 0; }
+.note p { margin: 0; }
+.aside { color: var(--muted); font-size: 15.5px; }
+.cta { border: 1px solid var(--rule); background: var(--surface); border-radius: 12px; padding: 18px 20px; margin-top: 36px; }
+.cta h2 { margin-top: 0; }
+.shot { margin: 14px 0; border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; }
+.shot img { display: block; width: 100%; height: auto; }
+footer { border-top: 1px solid var(--rule); margin-top: 48px; padding-block: 24px 48px; color: var(--muted); font-size: 14px; }
+:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav><a class="brand" href="./"><img src="favicon.svg" alt="" width="24" height="24">Long Run Labs</a><span class="links"><a href="./#install">Agent Mission Control</a><a href="privacy.html">Privacy</a></span></nav>
+
+  <span class="label">Guide · Claude Code hooks</span>
+  <h1>How to let Claude Code run overnight, and keep the GO button</h1>
+  <p class="lede">Long runs fail in two ways: they stop halfway while you sleep, or they push ahead with something they should have asked about. Three small hooks fix both. Here they are, tested, with the gotchas we hit.</p>
+
+  <h2>1. Give it a finish line, without an infinite loop</h2>
+  <p>When Claude decides it's finished, Claude Code runs your <code>Stop</code> hooks. If one prints <code>{"decision": "block", "reason": "…"}</code>, Claude goes back to work with your reason as its next instruction. That's the whole trick for "keep going until it's done".</p>
+  <p>The danger is a loop: the agent has nothing left it can do, you block, it stops, you block again. So only push again if it made progress since your last push. Count tool calls with a <code>PostToolUse</code> hook:</p>
+<pre>#!/usr/bin/env bash
+# .claude/hooks/count-calls.sh  (PostToolUse): one line per tool call
+cd "$CLAUDE_PROJECT_DIR" || exit 0                              # the agent may have cd'd elsewhere
+cat &gt; /dev/null
+echo &gt;&gt; .claude/tool-calls</pre>
+<pre>#!/usr/bin/env bash
+# .claude/hooks/keep-going.sh  (Stop): keep going until .done exists, while it's making progress
+cd "$CLAUDE_PROJECT_DIR" || exit 0
+cat &gt; /dev/null
+[ -f .done ] &amp;&amp; exit 0                                          # finished: let it stop
+calls=$(cat .claude/tool-calls 2&gt;/dev/null | wc -l | tr -d ' ')
+last=$(cat .claude/last-push 2&gt;/dev/null)
+[ "${calls:-0}" = "$last" ] &amp;&amp; exit 0                           # no tool calls since the last push: stuck, let it stop
+echo "${calls:-0}" &gt; .claude/last-push
+jq -n --arg done "$CLAUDE_PROJECT_DIR/.done" '{decision: "block", reason: ("Not done yet: every function in src/ needs a passing test, committed. Keep going. When that is true, run: touch \"" + $done + "\"")}'</pre>
+  <p>Put the real goal and its "done when" in the reason. The agent reads it every time it tries to stop. Each script starts with <code>cd "$CLAUDE_PROJECT_DIR"</code>, because hooks run wherever the agent last <code>cd</code>'d to, and relative paths would break the moment it steps into <code>src/</code>.</p>
+  <p class="aside">Claude Code also has a built-in <code>/goal</code> that keeps a session going until a condition holds. Your own hook is worth it when you want this exact progress check and the hold list below, in a file you control.</p>
+  <div class="note"><p><strong>Gotcha 1: the agent can't write in <code>.claude/</code>.</strong> Our first version asked it to <code>touch .claude/done</code>. Even with writes allowed, Claude Code treats that path as sensitive: in our headless run the write was refused, with nobody there to allow it. Keep the agent's "done" marker outside it (<code>.done</code> above, git-ignored). Your hooks can still write in <code>.claude/</code>, because they aren't the agent.</p></div>
+  <div class="note"><p><strong>Gotcha 2: there's a ceiling anyway.</strong> In our runs (Claude Code 2.1), after 9 blocks in a row Claude Code printed "A hook blocked the turn from ending 9 consecutive times — overriding and ending turn" and stopped. <code>CLAUDE_CODE_STOP_HOOK_BLOCK_CAP</code> raises it. The progress check above keeps you well clear of it.</p></div>
+
+  <h2>2. Hold risky commands instead of asking an empty room</h2>
+  <p>Claude Code's permission rules can make <code>git push</code> ask first. That's right when you're at the keyboard. At 3 a.m. the question just sits there, and in a headless run (<code>claude -p</code>) nobody can answer it. A <code>PreToolUse</code> hook can refuse the command with a reason instead. The agent hears "held, carry on with other work", keeps going, and you get a list in the morning:</p>
+<pre>#!/usr/bin/env bash
+# .claude/hooks/hold-risky.sh  (PreToolUse, matcher "Bash")
+cd "$CLAUDE_PROJECT_DIR" || exit 0
+command -v jq &gt;/dev/null || { echo "hold-risky: jq isn't installed, so Bash is refused until it is" &gt;&amp;2; exit 2; }
+cmd=$(jq -r '.tool_input.command // ""')
+case "$cmd" in
+  *"git push"*|*"rm -rf"*|*"npm publish"*)
+    echo "$(date -u +%FT%TZ) $cmd" &gt;&gt; .claude/held-commands.log
+    jq -n --arg c "$cmd" '{hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "deny",
+      permissionDecisionReason: ("Held for the human: " + $c + ". It is logged; do not retry it. Continue with other work.")}}' ;;
+esac</pre>
+  <div class="note"><p><strong>Gotcha 3: it will retry anyway.</strong> In one short run the agent tried the held push four times, sometimes chained onto a commit (<code>git commit … &amp;&amp; git push</code>). The whole chained command is refused, which is what you want, and the agent then ran the commit on its own. Expect duplicates in the log, and deduplicate before you act on it. And matching command text is a seatbelt, not a sandbox: <code>git -C repo push</code> slips past <code>*"git push"*</code>. Add the variants you care about, and keep Claude Code's own permissions on.</p></div>
+
+  <h2>3. Wire them up</h2>
+  <p>In <code>.claude/settings.local.json</code>, your own settings. <code>chmod +x</code> the scripts. They need <code>jq</code>. Claude Code only keeps that settings file out of git when it creates the file itself, so add these lines to <code>.gitignore</code>. Otherwise an agent's <code>git add -A</code> commits them, held-commands log included.</p>
+<pre>.done
+.claude/settings.local.json
+.claude/tool-calls
+.claude/last-push
+.claude/held-commands.log</pre>
+  <p>Before the next run, delete <code>.done</code> and <code>.claude/last-push</code>, or the run stops right away.</p>
+<pre>{
+  "hooks": {
+    "PostToolUse": [{ "hooks": [{ "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/count-calls.sh" }] }],
+    "Stop": [{ "hooks": [{ "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/keep-going.sh" }] }],
+    "PreToolUse": [{ "matcher": "Bash", "hooks": [{ "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/hold-risky.sh" }] }]
+  }
+}</pre>
+  <p>We tried them in a scratch repo with a deliberately small prompt: "add a test for <code>add()</code>, then push". In the first run, the agent tested <code>add()</code> and tried to stop. The Stop hook sent it back, and it went on to test every function and commit. That run also hit gotcha 1. With the marker moved to <code>.done</code>, the second run ended cleanly once the agent created it. Every time, the push was held and logged, and the remote stayed untouched.</p>
+
+  <h2>What these hooks don't do</h2>
+  <ul>
+    <li><strong>Approve and carry on.</strong> The held command stays held. Running exactly what you approved, once, means tracking each request and its decision.</li>
+    <li><strong>Budgets.</strong> You can count calls and minutes and refuse tools past a limit, but now you're keeping state across four hooks.</li>
+    <li><strong>Steering mid-run.</strong> A <code>PostToolUse</code> hook can return <code>additionalContext</code> to hand the agent your notes between tool calls. You need somewhere to write them and a way to mark them read.</li>
+  </ul>
+
+  <div class="cta">
+    <h2>Or install all of it as one plugin</h2>
+    <p>Agent Mission Control is a free, MIT-licensed Claude Code plugin built on the same hooks. It gives you a goal with a "done when", budgets that stop the run, held commands you approve with <code>/mc approve a1</code> (the approval covers one run of exactly that command), notes with <code>/mc say</code>, and <code>/mc status</code>. It makes no network connections of its own.</p>
+<pre>/plugin marketplace add long-run-labs/agent-mission-control
+/plugin install agent-mission-control@long-run-labs
+/mc goal Every function in src/ has a passing test --done-when npm test passes and it's committed</pre>
+    <div class="shot"><img src="mc-demo.png" alt="A real Claude Code session with the plugin: a git push waits as a1 until /mc approve a1, then runs and the mission completes." width="2400" height="1350" loading="lazy"></div>
+    <p>Want a live console and a phone alert when it needs you? That's <a href="./#price">the kit</a>.</p>
+  </div>
+
+  <footer>© 2026 Long Run Labs · <a href="./">Agent Mission Control</a> · <a href="privacy.html">Privacy</a></footer>
+</div>
+</body>
+</html>

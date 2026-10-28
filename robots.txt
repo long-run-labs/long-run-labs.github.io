@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://long-run-labs.github.io/sitemap.xml
